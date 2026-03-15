@@ -21,6 +21,9 @@ if verify_sha256 "$tmp_file" "00000000000000000000000000000000000000000000000000
 fi
 echo "ok: verify_sha256 rejects incorrect checksum"
 
+# Recreate file (verify_sha256 deletes it on mismatch)
+echo "test-artifact-content" > "$tmp_file"
+
 # --- Test 3: verify_sha256 skips when checksum is "none" ---
 verify_sha256 "$tmp_file" "none" 2>/dev/null
 echo "ok: verify_sha256 skips when checksum is 'none'"
