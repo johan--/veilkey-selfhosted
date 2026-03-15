@@ -168,6 +168,7 @@ docker:
     - docker push "$CI_REGISTRY_IMAGE:latest"
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
+  allow_failure: true
   tags:
     - shell
 
