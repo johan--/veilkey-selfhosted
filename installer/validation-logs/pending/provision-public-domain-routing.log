@@ -1,0 +1,11 @@
+status=pending
+date=2026-03-15
+object=provision-public-domain-routing
+repo=/opt/veilkey-installer-repo
+scope=public domain/tls for all-in-one
+pending_items=domain, route, tls provisioning outside installer
+next_owner=proxy/route automation layer
+blocker=installer currently verifies localhost and direct LXC IP only; domain and TLS are owned by external proxy/route automation
+target_layer=traefik/cloudflare or equivalent route automation
+expected=after install, a stable public domain resolves to all-in-one keycenter/localvault through managed TLS
+next_action=define route provisioning contract, then add a separate validation object for public-domain health

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeilKey KeyCenter Admin</title>
+<style>
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #1a1a2e; color: #e0e0e0; font-size: 12px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.top-bar { background-color: #0f0f23; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a4e; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+.top-bar h1 { margin: 0; font-size: 18px; color: #a0a0ff; }
+.top-bar .status { font-size: 11px; color: #8080a0; }
+.main-content { display: flex; flex-grow: 1; overflow: hidden; }
+.vault-rail { width: 180px; background-color: #1f1f3e; padding: 10px; border-right: 1px solid #2a2a4e; overflow-y: auto; flex-shrink: 0; }
+.vault-rail h2 { font-size: 14px; margin-top: 0; margin-bottom: 10px; color: #c0c0ff; }
+.vault-item { padding: 7px 10px; margin-bottom: 5px; cursor: pointer; border-radius: 4px; transition: background-color 0.2s; display: flex; justify-content: space-between; align-items: center; }
+.vault-item:hover, .vault-item.active { background-color: #2a2a4e; }
+.vault-item span { font-size: 11px; color: #9090b0; }
+.key-table { flex-grow: 1; background-color: #1a1a2e; overflow-y: auto; padding: 10px; }
+.key-table h2 { font-size: 14px; margin-top: 0; margin-bottom: 10px; color: #c0c0ff; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 8px; text-align: left; border-bottom: 1px solid #2a2a4e; font-size: 11px; }
+th { background-color: #2a2a4e; color: #c0c0ff; cursor: pointer; }
+td { color: #e0e0e0; }
+tr:hover { background-color: #2a2a4e; }
+.badge { background-color: #4a4a6e; color: #e0e0e0; padding: 3px 6px; border-radius: 3px; font-size: 9px; margin-left: 5px; }
+.badge.external { background-color: #8b0000; }
+.badge.temp { background-color: #8b8b00; }
+.detail-panel { width: 300px; background-color: #1f1f3e; padding: 10px; border-left: 1px solid #2a2a4e; overflow-y: auto; flex-shrink: 0; }
+.detail-panel h2 { font-size: 14px; margin-top: 0; margin-bottom: 10px; color: #c0c0ff; }
+.detail-item { margin-bottom: 10px; }
+.detail-item label { display: block; font-weight: bold; margin-bottom: 3px; color: #a0a0ff; }
+.detail-item span, .detail-item input, .detail-item textarea { display: block; width: calc(100% - 10px); padding: 5px; background-color: #2a2a4e; border: 1px solid #3a3a5e; border-radius: 4px; color: #e0e0e0; font-size: 11px; }
+.detail-item input:focus, .detail-item textarea:focus { outline: none; border-color: #6060ff; }
+.detail-item textarea { resize: vertical; min-height: 60px; }
+.button-group { margin-top: 15px; display: flex; justify-content: flex-end; gap: 8px; }
+.button-group button { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; transition: background-color 0.2s; }
+.button-group .primary { background-color: #6060ff; color: white; }
+.button-group .primary:hover { background-color: #7070ff; }
+.button-group .secondary { background-color: #4a4a6e; color: #e0e0e0; }
+.button-group .secondary:hover { background-color: #5a5a7e; }
+</style>
+</head>
+<body>
+<div class="top-bar">
+    <h1>VeilKey KeyCenter <span style="color:#e0e0e0;">Admin Console</span></h1>
+    <div class="status">
+        <span>상태: <span style="color:#00ff00;">온라인</span></span> |
+        <span>버전: 2.1.0</span> |
+        <span>사용자: admin@veilkey.com</span>
+    </div>
+</div>
+<div class="main-content">
+    <div class="vault-rail">
+        <h2>금고 (Vaults)</h2>
+        <div class="vault-item active">
+            <span>기본 금고 (Default)</span>
+            <span>123</span>
+        </div>
+        <div class="vault-item">
+            <span>프로젝트 X (Project X)</span>
+            <span>45</span>
+        </div>
+        <div class="vault-item">
+            <span>개발 환경 (Dev Env)</span>
+            <span>78</span>
+        </div>
+        <div class="vault-item">
+            <span>외부 서비스 (External)</span>
+            <span>12 <span class="badge external">EXTERNAL</span></span>
+        </div>
+        <div class="vault-item">
+            <span>임시 키 (Temporary)</span>
+            <span>5 <span class="badge temp">TEMP</span></span>
+        </div>
+    </div>
+    <div class="key-table">
+        <h2>키 목록 (Key List)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>키 ID</th>
+                    <th>이름 (Name)</th>
+                    <th>유형 (Type)</th>
+                    <th>사용 (Usage)</th>
+                    <th>바인딩 (Bindings)</th>
+                    <th>상태 (Status)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>VK-001</td>
+                    <td>API_KEY_SVC_A</td>
+                    <td>AES-256</td>
+                    <td>1,234</td>
+                    <td>3</td>
+                    <td>활성 (Active)</td>
+                </tr>
+                <tr>
+                    <td>VK-002</td>
+                    <td>DB_ENC_KEY_PROD</td>
+                    <td>RSA-4096</td>
+                    <td>567</td>
+                    <td>1</td>
+                    <td>활성 (Active)</td>
+                </tr>
+                <tr>
+                    <td>VK-003</td>
+                    <td>TEMP_AUTH_TOKEN <span class="badge temp">TEMP</span></td>
+                    <td>HMAC-SHA256</td>
+                    <td>12</td>
+                    <td>0</td>
+                    <td>만료 예정 (Expiring)</td>
+                </tr>
+                <tr>
+                    <td>VK-004</td>
+                    <td>LEGACY_SVC_KEY <span class="badge external">EXTERNAL</span></td>
+                    <td>AES-128</td>
+                    <td>890</td>
+                    <td>2</td>
+                    <td>활성 (Active)</td>
+                </tr>
+                <tr>
+                    <td>VK-005</td>
+                    <td>WEB_SESSION_KEY</td>
+                    <td>AES-256</td>
+                    <td>2,345</td>
+                    <td>5</td>
+                    <td>활성 (Active)</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="detail-panel">
+        <h2>키 상세 (Key Details)</h2>
+        <form>
+            <div class="detail-item">
+                <label for="keyId">키 ID (Key ID)</label>
+                <input type="text" id="keyId" value="VK-001" readonly>
+            </div>
+            <div class="detail-item">
+                <label for="keyName">이름 (Name)</label>
+                <input type="text" id="keyName" value="API_KEY_SVC_A">
+            </div>
+            <div class="detail-item">
+                <label for="keyType">유형 (Type)</label>
+                <input type="text" id="keyType" value="AES-256" readonly>
+            </div>
+            <div class="detail-item">
+                <label for="usageCount">사용 횟수 (Usage Count)</label>
+                <input type="text" id="usageCount" value="1,234" readonly>
+            </div>
+            <div class="detail-item">
+                <label for="bindings">바인딩 (Bindings)</label>
+                <textarea id="bindings" readonly>Service A, Client X, App Y</textarea>
+            </div>
+            <div class="detail-item">
+                <label for="audit">최근 감사 (Recent Audit)</label>
+                <textarea id="audit" readonly>2023-10-26 14:30: Key access by user@domain.com
+2023-10-25 09:15: Key rotation initiated by system</textarea>
+            </div>
+            <div class="button-group">
+                <button type="button" class="secondary">취소 (Cancel)</button>
+                <button type="submit" class="primary">저장 (Save)</button>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

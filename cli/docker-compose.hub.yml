@@ -1,0 +1,20 @@
+services:
+  veilkey-keycenter:
+    image: ${VEILKEY_REGISTRY:-ghcr.io}/veilkey/veilkey-keycenter:latest
+    container_name: veilkey-keycenter
+    ports:
+      - "${VEILKEY_PORT:-10180}:10180"
+    volumes:
+      - veilkey-data:/data
+    environment:
+      VEILKEY_PASSWORD: ${VEILKEY_PASSWORD}
+      VEILKEY_MODE: ${VEILKEY_MODE:-root}
+      VEILKEY_ADDR: ":10180"
+      VEILKEY_DB_PATH: /data/veilkey.db
+      VEILKEY_TRUSTED_IPS: ${VEILKEY_TRUSTED_IPS:-127.0.0.1}
+      VEILKEY_PARENT_URL: ${VEILKEY_PARENT_URL:-}
+      VEILKEY_LABEL: ${VEILKEY_LABEL:-}
+    restart: unless-stopped
+
+volumes:
+  veilkey-data:

@@ -1,0 +1,89 @@
+# VeilKey Guard Project Configuration
+# Place this file in your project root as .veilkey.yml
+# All settings are optional; defaults are shown below.
+
+# Minimum confidence score to report a finding (0.0 - 1.0).
+# Lower values catch more secrets but may produce false positives.
+# Default: 0.7
+threshold: 0.7
+
+# Confidence score above which findings are treated as blocking errors.
+# Findings between threshold and block_threshold are warnings.
+# Default: 0.8
+block_threshold: 0.8
+
+# Entropy threshold for hex-encoded strings.
+# Default: 4.5
+entropy_threshold_hex: 4.5
+
+# Entropy threshold for base64-encoded strings.
+# Default: 5.0
+entropy_threshold_base64: 5.0
+
+# Context boost added when surrounding text contains secret-related keywords.
+# Default: 0.2
+context_boost: 0.2
+
+# Output format: text, json, sarif, gitlab-sast
+# Default: text
+format: text
+
+# Paths and patterns to exclude from scanning.
+# Supports glob patterns.
+exclude:
+  - "vendor/"
+  - "node_modules/"
+  - "*.min.js"
+  - "*.min.css"
+  - "*.lock"
+  - "*.sum"
+  - "storage/logs/"
+  - "public/build/"
+  - ".git/"
+
+# File patterns to include (if set, only these are scanned).
+# Leave empty to scan all non-excluded files.
+# include:
+#   - "*.php"
+#   - "*.py"
+#   - "*.env*"
+#   - "*.yml"
+#   - "*.yaml"
+#   - "*.json"
+#   - "*.toml"
+
+# Path to a custom patterns file (relative to project root).
+# Additional patterns are merged with the built-in set.
+# patterns_file: ".veilkey-patterns.yml"
+
+# VeilKey API server URL for automatic secret registration.
+# When set, detected secrets are registered and replaced with VK hashes.
+# Leave empty to only report findings without registration.
+# server_url: "http://your-veilkey-server:10180"
+
+# Maximum file size to scan (in bytes). Files larger than this are skipped.
+# Default: 1048576 (1 MB)
+max_file_size: 1048576
+
+# Disable specific built-in pattern groups.
+# Available groups: aws, gcp, azure, github, gitlab, slack, database, generic, private_key
+# disable_patterns:
+#   - generic
+
+# Enable or disable entropy analysis.
+# Default: true
+entropy_enabled: true
+
+# Enable or disable context boost.
+# Default: true
+context_boost_enabled: true
+
+# Allowlist specific strings that are known false positives.
+# These exact values will never be flagged.
+allowlist:
+  - "EXAMPLE_KEY_DO_NOT_USE"
+  - "test-api-key-12345"
+
+# Allowlist regex patterns for known false positives.
+# allowlist_patterns:
+#   - "AKIA[A-Z0-9]{16}"  # Test AWS key pattern used in docs

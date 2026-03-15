@@ -1,0 +1,10 @@
+bin/
+.env
+*.env
+*.db
+veilkey-env
+data/
+components.toml
+stage/
+bundle/
+downloads/

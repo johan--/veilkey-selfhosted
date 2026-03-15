@@ -1,0 +1,11 @@
+status=pending
+date=2026-03-15
+object=refactor-proxy-asset-names
+repo=/opt/veilkey-installer-repo
+scope=installer blocked by veilkey-proxy asset names
+pending_items=veilroot-shell, install-veilroot-boundary.sh, veilkey-veilroot-*
+next_owner=veilkey-proxy repo
+blocker=proxy asset files are sourced from veilkey-proxy stage_assets, not from installer
+target_repo=veilkey-proxy
+expected=installer-facing asset names stop exposing legacy veilroot wording
+next_action=add a veilkey-proxy issue or MR that renames staged host asset names and update installer stage_assets accordingly

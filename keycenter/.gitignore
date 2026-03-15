@@ -1,0 +1,10 @@
+client/agent
+client/env-sync
+host/veilscope
+host/veilscope-server
+veilkey-keycenter
+veilkey-storage
+.env
+*.db
+data/
+veilkey-env

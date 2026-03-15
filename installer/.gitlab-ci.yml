@@ -1,0 +1,124 @@
+stages:
+  - verify
+  - validate
+  - manifest
+  - e2e
+
+validate-components:
+  stage: validate
+  script:
+    - ./install.sh init
+    - ./install.sh validate
+    - ./install.sh doctor
+    - ./install.sh detect-os
+    - ./install.sh plan-install proxmox-lxc-allinone "$CI_PROJECT_DIR/.tmp/rootfs"
+    - ./install.sh configure proxmox-lxc-allinone "$CI_PROJECT_DIR/.tmp/rootfs"
+    - ./install.sh plan-activate "$CI_PROJECT_DIR/.tmp/rootfs"
+    - export VEILKEY_GITLAB_PACKAGE_PAT="$VEILKEY_GITLAB_PACKAGE_PAT"
+    - bash tests/test_proxy_component.sh
+    - bash tests/test_install_profile_command.sh
+    - bash tests/test_proxmox_wrapper_commands.sh
+  tags:
+    - shell
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+validate-install-layout:
+  stage: validate
+  script:
+    - export VEILKEY_GITLAB_PACKAGE_PAT="$VEILKEY_GITLAB_PACKAGE_PAT"
+    - ./install.sh init
+    - ./install.sh bundle proxmox-lxc-allinone "$CI_PROJECT_DIR/.tmp/bundle"
+    - ./install.sh install proxmox-lxc-allinone "$CI_PROJECT_DIR/.tmp/rootfs" "$CI_PROJECT_DIR/.tmp/bundle"
+    - ./install.sh configure proxmox-lxc-allinone "$CI_PROJECT_DIR/.tmp/rootfs"
+    - ./install.sh plan-activate "$CI_PROJECT_DIR/.tmp/rootfs"
+    - ./install.sh post-install-health "$CI_PROJECT_DIR/.tmp/rootfs"
+    - test -x "$CI_PROJECT_DIR/.tmp/rootfs/usr/local/bin/veilkey"
+    - test -x "$CI_PROJECT_DIR/.tmp/rootfs/usr/local/bin/veilkey-keycenter"
+    - test -x "$CI_PROJECT_DIR/.tmp/rootfs/usr/local/bin/veilkey-localvault"
+    - test -f "$CI_PROJECT_DIR/.tmp/rootfs/opt/veilkey/installer/install.env"
+    - test -f "$CI_PROJECT_DIR/.tmp/rootfs/etc/veilkey/keycenter.env.example"
+    - test -f "$CI_PROJECT_DIR/.tmp/rootfs/etc/veilkey/keycenter.env"
+    - test -f "$CI_PROJECT_DIR/.tmp/rootfs/etc/veilkey/services.enabled"
+    - test -x "$CI_PROJECT_DIR/.tmp/rootfs/opt/veilkey/installer/bin/veilkey-activate-services"
+    - test -f "$CI_PROJECT_DIR/.tmp/rootfs/etc/systemd/system/veilkey-keycenter.service"
+    - bash tests/test_proxy_install_layout.sh
+  tags:
+    - shell
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+export-component-manifest:
+  stage: manifest
+  script:
+    - mkdir -p out
+    - ./install.sh init
+    - ./install.sh print-json > out/components.json
+    - cp components.toml out/components.toml
+    - cat out/components.json
+    - cat out/components.toml
+  artifacts:
+    paths:
+      - out/components.json
+      - out/components.toml
+  tags:
+    - shell
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+e2e-proxmox-single-node:
+  stage: e2e
+  script:
+    - export VEILKEY_GITLAB_PACKAGE_PAT="$VEILKEY_GITLAB_PACKAGE_PAT"
+    - ./scripts/ci/proxmox_vm_layout_test.sh proxmox-lxc-allinone
+  tags:
+    - shell
+  rules:
+    - if: '$INSTALLER_E2E_PROXMOX == "1"'
+      when: manual
+
+e2e-proxmox-runtime-node:
+  stage: e2e
+  script:
+    - export VEILKEY_GITLAB_PACKAGE_PAT="$VEILKEY_GITLAB_PACKAGE_PAT"
+    - ./scripts/ci/proxmox_vm_layout_test.sh proxmox-lxc-runtime
+  tags:
+    - shell
+  rules:
+    - if: '$INSTALLER_E2E_PROXMOX == "1"'
+      when: manual
+
+e2e-darwin-layout:
+  stage: e2e
+  script:
+    - export VEILKEY_GITLAB_PACKAGE_PAT="$VEILKEY_GITLAB_PACKAGE_PAT"
+    - ./scripts/ci/darwin_ssh_layout_test.sh veilkey-runtime
+  tags:
+    - shell
+  rules:
+    - if: '$INSTALLER_E2E_DARWIN == "1"'
+      when: manual
+
+
+mr-guard:
+  stage: verify
+  script:
+    - bash tests/test_mr_guard.sh
+    - bash scripts/check-mr-guard.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  tags:
+    - shell
+
+rulebook-format:
+  stage: verify
+  script:
+    - bash tests/test_rulebook_format.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  tags:
+    - shell

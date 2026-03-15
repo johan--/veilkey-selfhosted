@@ -1,0 +1,17 @@
+stages:
+  - test
+  - build
+
+go:test:
+  stage: test
+  image: golang:1.24
+  script:
+    - go test ./...
+    - bash tests/run-shell-tests.sh
+
+# Minimal build gate for the observer/proxy scaffold.
+go:build:
+  stage: build
+  image: golang:1.24
+  script:
+    - go build ./cmd/veilkey-proxy

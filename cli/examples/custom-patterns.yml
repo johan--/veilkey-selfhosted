@@ -1,0 +1,58 @@
+# VeilKey Guard Custom Patterns
+# Define additional detection patterns beyond the built-in set.
+# Reference this file from .veilkey.yml with: patterns_file: "custom-patterns.yml"
+#
+# Each pattern requires:
+#   id          - Unique identifier for the pattern
+#   name        - Human-readable name
+#   regex       - Regular expression to match
+#   confidence  - Base confidence score when matched (0.0 - 1.0)
+#
+# Optional fields:
+#   description - Detailed description of what this pattern detects
+#   keywords    - Context keywords that boost confidence when found nearby
+#   entropy_check - Whether to apply entropy analysis on the match (default: true)
+
+patterns:
+  # Internal service API tokens (custom format used by internal services)
+  - id: internal_service_token
+    name: Internal Service Token
+    description: >
+      Detects API tokens issued by internal services. These tokens follow
+      the format: svc_ followed by 32 hexadecimal characters.
+    regex: 'svc_[0-9a-f]{32}'
+    confidence: 0.85
+    keywords:
+      - "SERVICE_TOKEN"
+      - "API_TOKEN"
+      - "service_token"
+      - "api_token"
+    entropy_check: false
+
+  # Database connection strings with embedded credentials
+  - id: database_connection_string
+    name: Database Connection String
+    description: >
+      Detects database connection strings that contain embedded usernames
+      and passwords, such as mysql://user:pass@host/db.
+    regex: '(?:mysql|postgres|postgresql|mongodb|redis)://[^:]+:[^@]+@[^\s]+'
+    confidence: 0.90
+    keywords:
+      - "DATABASE_URL"
+      - "DB_CONNECTION"
+      - "connection_string"
+      - "dsn"
+
+  # Mattermost webhook URLs
+  - id: mattermost_webhook
+    name: Mattermost Webhook URL
+    description: >
+      Detects Mattermost incoming webhook URLs that contain the webhook
+      secret token.
+    regex: 'https?://[^\s]+/hooks/[a-z0-9]{26}'
+    confidence: 0.80
+    keywords:
+      - "MATTERMOST"
+      - "WEBHOOK"
+      - "webhook_url"
+      - "incoming_webhook"

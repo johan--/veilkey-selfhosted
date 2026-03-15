@@ -1,0 +1,58 @@
+project_name: veilkey-cli
+
+dist: dist
+
+builds:
+  - id: veilkey-cli
+    binary: veilkey-cli
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: default
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - src: scripts/vk
+        dst: .
+      - src: scripts/vk_wrap
+        dst: .
+    # Exclude helper scripts from Windows archives
+    rlcp: true
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+# GitLab release
+gitlab_urls:
+  api: "{{ if index .Env \"CI_API_V4_URL\" }}{{ .Env.CI_API_V4_URL }}{{ else }}https://gitlab.com/api/v4{{ end }}"
+  download: "{{ if index .Env \"CI_SERVER_URL\" }}{{ .Env.CI_SERVER_URL }}{{ else }}https://gitlab.com{{ end }}"
+
+release:
+  gitlab:
+    owner: "{{ .Env.CI_PROJECT_NAMESPACE }}"
+    name: "{{ .Env.CI_PROJECT_NAME }}"

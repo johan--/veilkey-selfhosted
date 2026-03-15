@@ -1,0 +1,89 @@
+version = 1
+name = "veilkey-rulebook"
+channel = "draft"
+
+[categories]
+required = ["ref_model", "cli_surface", "api_surface", "deploy_install", "docs"]
+
+[consumers.mr_guard]
+runtime_paths = [
+  "^cmd/",
+  "^internal/",
+  "^cli/",
+  "^cli-src/",
+  "^plugins/",
+  "^scripts/",
+  "^rulebook/",
+  "(^|/)install\\.sh$",
+  "^\\.gitlab-ci\\.yml$",
+  "(^|/)[^/]+\\.go$",
+  "(^|/)validate_rulebook\\.py$",
+  "(^|/)check_mr_guard\\.py$",
+]
+deploy_paths = [
+  "^scripts/deploy",
+  "(^|/)install\\.sh$",
+  "^\\.gitlab-ci\\.yml$",
+  "^docker/",
+  "^plugins/.*/install\\.sh$",
+]
+docs_required_paths = [
+  "^cli/",
+  "^cli-src/",
+  "^cmd/",
+  "^internal/api/",
+  "^scripts/deploy",
+  "^rulebook/",
+  "(^|/)validate_rulebook\\.py$",
+  "(^|/)check_mr_guard\\.py$",
+  "(^|/)install\\.sh$",
+  "^\\.gitlab-ci\\.yml$",
+  "^README\\.md$",
+]
+doc_paths = [
+  "^README\\.md$",
+  "^CONTRIBUTING\\.md$",
+  "^docs/",
+  "^\\.gitlab/merge_request_templates/",
+]
+test_paths = [
+  "^tests?/",
+  "(^|/)[^/]+_test\\.go$",
+  "(^|/)test\\.sh$",
+  "(^|/)[^/]+_test\\.sh$",
+]
+
+[[rules]]
+id = "VK-REF-001"
+category = "ref_model"
+level = "error"
+summary = "scoped ref format is required"
+message = "Use scoped refs and reject non-canonical ref examples."
+
+[[rules]]
+id = "VK-CLI-001"
+category = "cli_surface"
+level = "error"
+summary = "user-facing CLI changes require focused proof"
+message = "Changes under CLI paths must include focused regression coverage."
+
+[[rules]]
+id = "VK-API-001"
+category = "api_surface"
+level = "error"
+summary = "user-facing API changes require docs"
+message = "API behavior changes must update README or docs in the same MR."
+
+[[rules]]
+id = "VK-DEPLOY-001"
+category = "deploy_install"
+level = "error"
+summary = "deploy and install changes require tests and docs"
+message = "Deploy and install changes must carry both regression tests and docs."
+
+[[rules]]
+id = "VK-DOC-001"
+category = "docs"
+level = "warn"
+summary = "docs must follow canonical CLI contract"
+message = "README and developer docs should follow the current CLI help contract."

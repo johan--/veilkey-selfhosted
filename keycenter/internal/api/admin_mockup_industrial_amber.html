@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VeilKey KeyCenter Ops</title>
+    <style>
+        body { font-family: 'Roboto Mono', monospace; background-color: #1a1a1a; color: #e0e0e0; margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .header { background-color: #2a2a2a; padding: 10px 20px; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; }
+        .header-left, .header-right { display: flex; align-items: center; }
+        .header-item { margin-right: 20px; }
+        .header-item span { color: #ffc107; margin-left: 5px; }
+        .main-content { display: flex; flex: 1; overflow: hidden; }
+        .vault-rail { width: 180px; background-color: #222; border-right: 1px solid #444; padding: 15px; overflow-y: auto; font-size: 0.85em; }
+        .vault-rail h3 { color: #ffc107; margin-top: 0; margin-bottom: 15px; font-size: 1em; text-transform: uppercase; }
+        .vault-item { padding: 8px 10px; margin-bottom: 5px; cursor: pointer; border-radius: 3px; transition: background-color 0.2s; }
+        .vault-item:hover, .vault-item.active { background-color: #3a3a3a; color: #ffc107; }
+        .key-table { flex: 1; background-color: #1f1f1f; overflow-y: auto; border-right: 1px solid #444; }
+        .key-table table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
+        .key-table th, .key-table td { padding: 10px 15px; text-align: left; border-bottom: 1px solid #333; }
+        .key-table th { background-color: #2a2a2a; color: #ffc107; text-transform: uppercase; font-weight: normal; }
+        .key-table tr:hover { background-color: #282828; }
+        .key-table td.status-ok { color: #8bc34a; }
+        .key-table td.status-warn { color: #ffc107; }
+        .badge { background-color: #ffc107; color: #1a1a1a; padding: 2px 6px; border-radius: 3px; font-size: 0.7em; margin-left: 5px; font-weight: bold; }
+        .detail-panel { width: 350px; background-color: #222; padding: 15px; overflow-y: auto; font-size: 0.85em; }
+        .detail-panel h3 { color: #ffc107; margin-top: 0; margin-bottom: 15px; font-size: 1em; text-transform: uppercase; }
+        .detail-item { margin-bottom: 10px; }
+        .detail-item label { color: #aaa; display: block; margin-bottom: 3px; }
+        .detail-item span, .detail-item input, .detail-item textarea { display: block; background-color: #333; border: 1px solid #555; padding: 8px; border-radius: 3px; color: #e0e0e0; width: calc(100% - 18px); }
+        .detail-item input:focus, .detail-item textarea:focus { outline: none; border-color: #ffc107; }
+        .detail-item textarea { resize: vertical; min-height: 60px; }
+        .actions button { background-color: #ffc107; color: #1a1a1a; border: none; padding: 8px 15px; border-radius: 3px; cursor: pointer; margin-right: 10px; font-weight: bold; transition: background-color 0.2s; }
+        .actions button:hover { background-color: #e0a800; }
+        .audit-log { margin-top: 20px; border-top: 1px solid #444; padding-top: 15px; }
+        .audit-log div { background-color: #333; padding: 8px; margin-bottom: 5px; border-radius: 3px; font-size: 0.75em; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <div class="header-item">VeilKey KeyCenter <span style="font-size:0.8em;">OPS/V1.2</span></div>
+            <div class="header-item">Status: <span style="color:#8bc34a;">OPERATIONAL</span></div>
+            <div class="header-item">Active Sessions: <span>3</span></div>
+        </div>
+        <div class="header-right">
+            <div class="header-item">User: <span>ADMIN_01</span></div>
+            <div class="header-item">Time: <span>14:37:22 KST</span></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="vault-rail">
+            <h3>Vaults (금고)</h3>
+            <div class="vault-item active">GLOBAL_PROD</div>
+            <div class="vault-item">DEV_TEST</div>
+            <div class="vault-item">HR_DATA</div>
+            <div class="vault-item">ARCHIVE_2023</div>
+        </div>
+
+        <div class="key-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Key ID (키 ID)</th>
+                        <th>Type (유형)</th>
+                        <th>Status (상태)</th>
+                        <th>Usage (사용량)</th>
+                        <th>Bindings (바인딩)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>VK-AES256-001</td>
+                        <td>AES-256</td>
+                        <td class="status-ok">ACTIVE</td>
+                        <td>12,345</td>
+                        <td>3</td>
+                    </tr>
+                    <tr>
+                        <td>VK-RSA2048-002</td>
+                        <td>RSA-2048</td>
+                        <td class="status-ok">ACTIVE</td>
+                        <td>8,765</td>
+                        <td>2 <span class="badge">TEMP LOCAL EXTERNAL</span></td>
+                    </tr>
+                    <tr>
+                        <td>VK-ECC521-003</td>
+                        <td>ECC-521</td>
+                        <td class="status-warn">PENDING ROTATION</td>
+                        <td>2,100</td>
+                        <td>1</td>
+                    </tr>
+                    <tr>
+                        <td>VK-HMAC-004</td>
+                        <td>HMAC-SHA256</td>
+                        <td class="status-ok">ACTIVE</td>
+                        <td>5,432</td>
+                        <td>4</td>
+                    </tr>
+                    <tr>
+                        <td>VK-AES128-005</td>
+                        <td>AES-128</td>
+                        <td class="status-ok">ACTIVE</td>
+                        <td>9,876</td>
+                        <td>2</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="detail-panel">
+            <h3>Key Details (키 세부정보)</h3>
+            <div class="detail-item">
+                <label>Key ID (키 ID)</label>
+                <span>VK-AES256-001</span>
+            </div>
+            <div class="detail-item">
+                <label>Type (유형)</label>
+                <span>AES-256</span>
+            </div>
+            <div class="detail-item">
+                <label>Status (상태)</label>
+                <span>ACTIVE</span>
+            </div>
+            <div class="detail-item">
+                <label>Usage Count (사용 횟수)</label>
+                <span>12,345</span>
+            </div>
+            <div class="detail-item">
+                <label>Bindings (바인딩)</label>
+                <span>App-Service-A, DB-Encryptor, Microservice-X</span>
+            </div>
+            <div class="detail-item">
+                <label>Created (생성일)</label>
+                <span>2023-01-15 10:30 KST</span>
+            </div>
+            <div class="detail-item">
+                <label>Last Used (최근 사용일)</label>
+                <span>2024-03-01 11:45 KST</span>
+            </div>
+            <div class="detail-item">
+                <label>Description (설명)</label>
+                <textarea>Primary encryption key for customer data in production environment.</textarea>
+            </div>
+            <div class="actions">
+                <button>Save (저장)</button>
+                <button style="background-color:#d32f2f;">Rotate (회전)</button>
+            </div>
+            <div class="audit-log">
+                <h3>Recent Audit (최근 감사)</h3>
+                <div>[2024-03-01 11:45] Usage increment by App-Service-A</div>
+                <div>[2024-02-28 09:00] Key status check by System</div>
+                <div>[2024-01-20 15:10] Description updated by ADMIN_01</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

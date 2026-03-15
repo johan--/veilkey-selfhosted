@@ -1,0 +1,69 @@
+package db
+
+import (
+	"fmt"
+
+	"gorm.io/gorm"
+)
+
+func (d *DB) SaveConfig(key, value string) error {
+	entry := &Config{
+		Key:    key,
+		Value:  value,
+		Scope:  "LOCAL",
+		Status: "active",
+	}
+	return d.conn.Save(entry).Error
+}
+
+func (d *DB) SaveConfigs(configs map[string]string) error {
+	return d.conn.Transaction(func(tx *gorm.DB) error {
+		for key, value := range configs {
+			entry := &Config{
+				Key:    key,
+				Value:  value,
+				Scope:  "LOCAL",
+				Status: "active",
+			}
+			if err := tx.Save(entry).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (d *DB) GetConfig(key string) (*Config, error) {
+	var entry Config
+	if err := d.conn.First(&entry, "key = ?", key).Error; err != nil {
+		return nil, fmt.Errorf("config %s not found", key)
+	}
+	return &entry, nil
+}
+
+func (d *DB) ListConfigs() ([]Config, error) {
+	var entries []Config
+	if err := d.conn.Order("key asc").Find(&entries).Error; err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+func (d *DB) DeleteConfig(key string) error {
+	result := d.conn.Delete(&Config{}, "key = ?", key)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("config %s not found", key)
+	}
+	return nil
+}
+
+func (d *DB) CountConfigs() (int, error) {
+	var count int64
+	if err := d.conn.Model(&Config{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}

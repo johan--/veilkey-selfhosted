@@ -1,0 +1,98 @@
+stages:
+  - verify
+  - test
+  - build
+  - package
+  - docker
+  - deploy
+
+test:
+  stage: test
+  script:
+    - CGO_ENABLED=1 go test -v -race -count=1 ./...
+  tags:
+    - shell
+
+build:
+  stage: build
+  script:
+    - CGO_ENABLED=1 go build -o veilkey-keycenter ./cmd/
+  artifacts:
+    paths:
+      - veilkey-keycenter
+  tags:
+    - shell
+
+package:
+  stage: package
+  needs:
+    - job: build
+      artifacts: true
+  script:
+    - PKG_NAME="veilkey-keycenter"
+    - PKG_VERSION="${CI_COMMIT_SHA}"
+    - mkdir -p dist/package
+    - install -m 755 veilkey-keycenter dist/package/veilkey-keycenter
+    - install -m 644 README.md dist/package/README.md
+    - mkdir -p dist/package/scripts
+    - install -m 755 scripts/deploy-lxc.sh dist/package/scripts/deploy-lxc.sh
+    - install -m 755 scripts/sync-agent-inventory.sh dist/package/scripts/sync-agent-inventory.sh
+    - tar -C dist/package -czf "dist/${PKG_NAME}.tar.gz" .
+    - |
+      PACKAGE_API_URL="${VEILKEY_GITLAB_API_URL:-${CI_API_V4_URL}}"
+      PACKAGE_TOKEN="${VEILKEY_GITLAB_PACKAGE_PAT:-}"
+      if [[ -z "${PACKAGE_TOKEN}" ]]; then
+        PACKAGE_TOKEN="$(printf 'protocol=http\nhost=%s\n\n' "${CI_SERVER_HOST}" | git credential fill | awk -F= '/^password=/{print $2}')"
+      fi
+      curl --fail --header "PRIVATE-TOKEN: ${PACKAGE_TOKEN}" \
+        --upload-file "dist/${PKG_NAME}.tar.gz" \
+        "${PACKAGE_API_URL}/projects/${CI_PROJECT_ID}/packages/generic/${PKG_NAME}/${PKG_VERSION}/${PKG_NAME}.tar.gz"
+  artifacts:
+    paths:
+      - dist/veilkey-keycenter.tar.gz
+  tags:
+    - shell
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+docker:
+  stage: docker
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - DOCKER_BUILDKIT=0 docker build
+      --build-arg DOCKER_MIRROR="$DOCKER_MIRROR"
+      -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+      -t "$CI_REGISTRY_IMAGE:main"
+      -t "$CI_REGISTRY_IMAGE:latest"
+      .
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - docker push "$CI_REGISTRY_IMAGE:main"
+    - docker push "$CI_REGISTRY_IMAGE:latest"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  tags:
+    - shell
+
+deploy:
+  stage: deploy
+  script:
+    - bash scripts/deploy-lxc.sh
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  tags:
+    - proxmox-host
+
+
+mr-guard:
+  stage: verify
+  script:
+    - bash tests/test_mr_guard.sh
+    - bash tests/test_deploy_lxc.sh
+    - bash scripts/check-mr-guard.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  tags:
+    - shell
