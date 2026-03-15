@@ -2,7 +2,7 @@
 
 `veilkey-selfhosted` is a unified source tree for the self-hosted VeilKey product surface.
 
-It groups the active self-hosted repositories under one top-level workspace while preserving the existing component boundaries as folders.
+It groups the active self-hosted components under one workspace while keeping installation, runtime services, and operator-facing clients separated by responsibility.
 
 ## Product Split
 
@@ -24,26 +24,26 @@ This repository contains only the `self-hosted` domain.
 
 - `installer/`
   - packaging, install profiles, Proxmox wrappers, health checks
-- `keycenter/`
-  - central control plane, inventory, policy, lifecycle orchestration
-- `localvault/`
-  - node-local runtime for secrets, configs, identity, and apply execution
-- `cli/`
-  - operator CLI, secure terminal wrapping, and the `veilroot` host boundary
-- `proxy/`
-  - outbound enforcement, session egress control, and rewrite auditing
+- `services/`
+  - runtime services
+  - `keycenter/`
+  - `localvault/`
+  - `proxy/`
+- `client/`
+  - operator-facing surfaces
+  - `cli/`
 
 ## Runtime Model
 
 The active runtime model is:
 
-- `keycenter`
+- `services/keycenter`
   - central control plane
-- `localvault`
+- `services/localvault`
   - node-local agent
-- `cli`
+- `client/cli`
   - operator-facing entrypoint
-- `proxy`
+- `services/proxy`
   - outbound enforcement layer
 - `installer`
   - installation and verification layer
@@ -52,4 +52,4 @@ The active runtime model is:
 
 This repository is intended to keep the self-hosted VeilKey surface in one place without flattening component responsibilities.
 
-Each folder remains the owner of its own source, tests, and operational contracts.
+Each top-level area remains responsible for its own source, tests, and operational contracts.
