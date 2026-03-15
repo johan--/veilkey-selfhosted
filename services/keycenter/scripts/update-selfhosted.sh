@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ -x /usr/local/go/bin/go ]]; then
+  export PATH="/usr/local/go/bin:${PATH}"
+fi
+
 REPO_ROOT="${VEILKEY_UPDATE_REPO_ROOT:-/opt/veilkey-selfhosted-repo}"
 REMOTE_NAME="${VEILKEY_UPDATE_REMOTE:-origin}"
 BRANCH_NAME="${VEILKEY_UPDATE_BRANCH:-main}"
