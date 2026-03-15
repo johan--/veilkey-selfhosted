@@ -1,6 +1,7 @@
 stages:
   - verify
   - validate
+  - security
   - manifest
   - e2e
 
@@ -43,6 +44,26 @@ validate-install-layout:
     - test -x "$CI_PROJECT_DIR/.tmp/rootfs/opt/veilkey/installer/bin/veilkey-activate-services"
     - test -f "$CI_PROJECT_DIR/.tmp/rootfs/etc/systemd/system/veilkey-keycenter.service"
     - bash tests/test_proxy_install_layout.sh
+  tags:
+    - shell
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+shellcheck:
+  stage: security
+  script:
+    - find . -name '*.sh' -not -path './.tmp/*' | xargs shellcheck
+  allow_failure: true
+  tags:
+    - shell
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+govulncheck:
+  stage: security
+  script:
+    - govulncheck ./...
+  allow_failure: true
   tags:
     - shell
   rules:
@@ -111,6 +132,17 @@ mr-guard:
     - if: $CI_PIPELINE_SOURCE == "web"
   tags:
     - shell
+
+shellcheck-lint:
+  stage: verify
+  script:
+    - shellcheck -x install.sh scripts/*.sh
+  tags:
+    - shell
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
 
 rulebook-format:
   stage: verify

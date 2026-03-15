@@ -1,15 +1,46 @@
 stages:
   - verify
+  - lint
   - test
+  - security
   - build
   - package
   - docker
   - deploy
 
+lint:
+  stage: lint
+  script:
+    - golangci-lint run ./...
+  tags:
+    - shell
+
 test:
   stage: test
   script:
-    - CGO_ENABLED=1 go test -v -race -count=1 ./...
+    - CGO_ENABLED=1 go test -v -race -count=1 -coverprofile=coverage.out ./...
+    - go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//' | awk '{if ($1 < 40) {print "Coverage " $1 "% is below 40% threshold"; exit 1}}'
+  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+  artifacts:
+    paths:
+      - coverage.out
+    expire_in: 1 week
+  tags:
+    - shell
+
+gosec:
+  stage: security
+  script:
+    - gosec ./...
+  allow_failure: true
+  tags:
+    - shell
+
+govulncheck:
+  stage: security
+  script:
+    - govulncheck ./...
+  allow_failure: true
   tags:
     - shell
 

@@ -1,13 +1,41 @@
 stages:
+  - lint
   - test
+  - security
   - build
+
+go:lint:
+  stage: lint
+  image: golang:1.24
+  script:
+    - golangci-lint run ./...
 
 go:test:
   stage: test
   image: golang:1.24
   script:
-    - go test ./...
+    - go test -race -coverprofile=coverage.out ./...
     - bash tests/run-shell-tests.sh
+    - go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//' | awk '{if ($1 < 40) {print "Coverage " $1 "% is below 40% threshold"; exit 1}}'
+  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+  artifacts:
+    paths:
+      - coverage.out
+    expire_in: 1 week
+
+gosec:
+  stage: security
+  image: golang:1.24
+  script:
+    - gosec ./...
+  allow_failure: true
+
+govulncheck:
+  stage: security
+  image: golang:1.24
+  script:
+    - govulncheck ./...
+  allow_failure: true
 
 # Minimal build gate for the observer/proxy scaffold.
 go:build:
