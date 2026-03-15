@@ -11,10 +11,34 @@ stages:
 default:
   before_script:
     - cd services/keycenter
+    - export GOBIN="${CI_PROJECT_DIR}/.ci-tools/bin"
+    - export PATH="${GOBIN}:${PATH}"
+
+.install-golangci-lint: &install-golangci-lint
+  - mkdir -p "${GOBIN}"
+  - |
+    if ! command -v golangci-lint >/dev/null 2>&1; then
+      GOBIN="${GOBIN}" go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+    fi
+
+.install-gosec: &install-gosec
+  - mkdir -p "${GOBIN}"
+  - |
+    if ! command -v gosec >/dev/null 2>&1; then
+      GOBIN="${GOBIN}" go install github.com/securego/gosec/v2/cmd/gosec@v2.22.2
+    fi
+
+.install-govulncheck: &install-govulncheck
+  - mkdir -p "${GOBIN}"
+  - |
+    if ! command -v govulncheck >/dev/null 2>&1; then
+      GOBIN="${GOBIN}" go install golang.org/x/vuln/cmd/govulncheck@latest
+    fi
 
 lint:
   stage: lint
   script:
+    - *install-golangci-lint
     - golangci-lint run ./...
   rules:
     - if: $CI_COMMIT_BRANCH
@@ -30,7 +54,10 @@ test:
       COVERAGE=$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $3}' | sed 's/%//')
       if [ -z "$COVERAGE" ]; then echo "ERROR: could not parse coverage from coverage.out"; exit 1; fi
       echo "Coverage: ${COVERAGE}%"
-      if echo "$COVERAGE < 40" | bc -l | grep -q '^1'; then echo "Coverage ${COVERAGE}% is below 40% threshold"; exit 1; fi
+      awk -v coverage="$COVERAGE" 'BEGIN { if (coverage + 0 < 40) exit 1 }' || {
+        echo "Coverage ${COVERAGE}% is below 40% threshold"
+        exit 1
+      }
   coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
   artifacts:
     paths:
@@ -45,6 +72,7 @@ test:
 gosec:
   stage: security
   script:
+    - *install-gosec
     - gosec ./...
   allow_failure: true
   rules:
@@ -56,6 +84,7 @@ gosec:
 govulncheck:
   stage: security
   script:
+    - *install-govulncheck
     - govulncheck ./...
   allow_failure: true
   rules:
