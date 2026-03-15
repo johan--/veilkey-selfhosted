@@ -23,14 +23,14 @@ lxc_exec() {
 
 resolve_target() {
   local vmid
-  vmid="$(pct list 2>/dev/null | awk -v name="$TARGET_NAME" '$3==name{print $1; exit}')"
+  vmid="$(pct list 2>/dev/null | awk -v name="$TARGET_NAME" 'NR>1 && $NF==name{print $1; exit}')"
   if [[ -n "$vmid" ]]; then
     printf '%s' "$vmid"
     return 0
   fi
 
   if [[ -z "${VEILKEY_DEPLOY_TARGET_NAME:-}" && -z "${VEILKEY_DEPLOY_SERVICE_NAME:-}" ]]; then
-    vmid="$(pct list 2>/dev/null | awk '$3=="veilkey-allinone"{print $1; exit}')"
+    vmid="$(pct list 2>/dev/null | awk 'NR>1 && $NF=="veilkey-allinone"{print $1; exit}')"
     if [[ -n "$vmid" ]]; then
       TARGET_NAME="veilkey-allinone"
       SERVICE_NAME="veilkey-server"
