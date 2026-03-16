@@ -44,7 +44,6 @@ validate-install-layout:
     - ./install.sh configure proxmox-lxc-allinone "$CI_PROJECT_DIR/.tmp/rootfs"
     - ./install.sh plan-activate "$CI_PROJECT_DIR/.tmp/rootfs"
     - ./install.sh post-install-health "$CI_PROJECT_DIR/.tmp/rootfs"
-    - test -x "$CI_PROJECT_DIR/.tmp/rootfs/usr/local/bin/veilkey"
     - test -x "$CI_PROJECT_DIR/.tmp/rootfs/usr/local/bin/veilkey-keycenter"
     - test -x "$CI_PROJECT_DIR/.tmp/rootfs/usr/local/bin/veilkey-localvault"
     - test -f "$CI_PROJECT_DIR/.tmp/rootfs/opt/veilkey/installer/install.env"

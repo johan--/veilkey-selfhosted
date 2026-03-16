@@ -8,7 +8,8 @@ tmp_out="$(mktemp)"
 trap 'rm -f "$tmp_manifest" "$tmp_out"' EXIT
 
 VEILKEY_INSTALLER_MANIFEST="$tmp_manifest" ./install.sh init >/dev/null
-VEILKEY_INSTALLER_MANIFEST="$tmp_manifest" ./install.sh doctor >"$tmp_out" 2>&1
+env -u VEILKEY_INSTALLER_GITLAB_API_BASE \
+  VEILKEY_INSTALLER_MANIFEST="$tmp_manifest" ./install.sh doctor >"$tmp_out" 2>&1
 grep -F "WARNING: manifest contains placeholder artifact URLs; set VEILKEY_INSTALLER_GITLAB_API_BASE or rewrite the manifest before bundle/download/install-profile" "$tmp_out" >/dev/null
 
 VEILKEY_INSTALLER_GITLAB_API_BASE="https://gitlab.60.internal.kr/api/v4" \
