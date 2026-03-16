@@ -735,6 +735,7 @@
 </template>
 
 <script setup>
+import { pageConfig } from './adminConfig';
 import { useAdminApp } from './useAdminApp';
 
 const {
