@@ -18,13 +18,19 @@ import {
 } from './renderPrimitives';
 import { translate } from './i18n';
 
+const GROUPED_KEYS_TAB = 'GROUPED_KEYS';
+const GROUPED_CONFIGS_TAB = 'GROUPED_CONFIGS';
+const CONFIG_SEARCH_TAB = 'CONFIG_SEARCH';
+const CONFIG_BULK_TAB = 'CONFIG_BULK';
+const CONFIG_PER_VAULT_TAB = 'CONFIG_PER_VAULT';
+
 export function useAdminApp() {
 const state = reactive({
     activePage: 'vaults',
     activeTabByPage: {
-        vaults: '전체 볼트',
-        functions: '함수 목록',
-        audit: '감사 로그',
+        vaults: 'ALL_VAULTS',
+        functions: 'FUNCTION_LIST',
+        audit: 'AUDIT_LOG',
         settings: 'UI'
     },
     message: null,
@@ -144,17 +150,42 @@ function activeTab() {
     return state.activeTabByPage[state.activePage];
 }
 
+function tabLabelKey(tab) {
+    return {
+        ALL_VAULTS: 'tab_all_vaults',
+        HOST_VAULT: 'tab_host_vault',
+        VAULT_ITEMS: 'tab_vault_items',
+        BULK_APPLY: 'tab_bulk_apply',
+        FUNCTION_LIST: 'tab_function_list',
+        FUNCTION_BINDINGS: 'tab_function_bindings',
+        FUNCTION_IMPACT: 'tab_function_impact',
+        FUNCTION_RUN: 'tab_function_run',
+        AUDIT_LOG: 'tab_audit_log',
+        UI: 'tab_ui',
+        ADMIN: 'tab_admin'
+    }[tab] || tab;
+}
+
+function tabLabel(tab) {
+    return t(tabLabelKey(tab));
+}
+
+function pageLabel(page) {
+    const key = pageConfig[page]?.labelKey;
+    return key ? t(key) : page;
+}
+
 function onGlobalSearchInput(event) {
     state.globalQuery = event?.target?.value || '';
     render();
 }
 
 function routePath(page, tab) {
-    if (page === 'vaults' && tab === '키 / 환경값') {
+    if (page === 'vaults' && tab === 'VAULT_ITEMS') {
         const vaultHash = state.selectedVault?.vault_runtime_hash || state.routeSelectedVaultHash;
         return vaultHash ? `/vaults/local/${encodeURIComponent(vaultHash)}` : '/vaults/local';
     }
-    if (page === 'vaults' && tab === '일괄변경') {
+    if (page === 'vaults' && tab === 'BULK_APPLY') {
         const vaultHash = state.selectedVault?.vault_runtime_hash || state.routeSelectedVaultHash;
         if (!vaultHash) return '/vaults/local';
         const view = state.bulkApplyView === 'workflow' ? 'workflow' : 'items';
@@ -170,12 +201,12 @@ function applyRoute(pathname, search = window.location.search) {
     if (localVaultMatch) {
         const params = new URLSearchParams(search || '');
         state.activePage = 'vaults';
-        state.activeTabByPage.vaults = params.get('tab') === 'bulk-apply' ? '일괄변경' : '키 / 환경값';
+        state.activeTabByPage.vaults = params.get('tab') === 'bulk-apply' ? 'BULK_APPLY' : 'VAULT_ITEMS';
         state.bulkApplyView = params.get('view') === 'workflow' ? 'workflow' : 'items';
         state.routeSelectedVaultHash = localVaultMatch[1] ? decodeURIComponent(localVaultMatch[1]) : null;
         return;
     }
-    const matched = normalized === '/' ? { page: 'vaults', tab: '전체 볼트' } : routeByPath[normalized];
+    const matched = normalized === '/' ? { page: 'vaults', tab: 'ALL_VAULTS' } : routeByPath[normalized];
     if (!matched) return;
     state.activePage = matched.page;
     state.activeTabByPage[matched.page] = matched.tab;
@@ -228,7 +259,7 @@ function itemValueFingerprint(kind, item) {
 
 function renderSyncStatus(kind, name) {
     const item = vaultItemSyncEntry(kind, name);
-    if (!item) return '<span class="muted">확인중</span>';
+    if (!item) return `<span class="muted">${escapeHTML(t('sync_checking'))}</span>`;
     const distribution = vaultDistributionStatus(kind, name);
     return renderStatusPill(distribution.label, distribution.className);
 }
@@ -236,35 +267,35 @@ function renderSyncStatus(kind, name) {
 function vaultSyncStatus(kind, name) {
     const item = vaultItemSyncEntry(kind, name);
     if (!item) {
-        return { loading: true, label: '확인중', className: '' };
+        return { loading: true, label: t('sync_checking'), className: '' };
     }
     if (item.exactCount >= item.comparableCount && item.comparableCount > 0) {
-        return { loading: false, label: '동기화됨', className: 'active' };
+        return { loading: false, label: t('sync_synced'), className: 'active' };
     }
     if (item.exactCount > 1) {
-        return { loading: false, label: '부분동기화', className: 'pending' };
+        return { loading: false, label: t('sync_partial'), className: 'pending' };
     }
-    return { loading: false, label: '미동기화', className: 'error' };
+    return { loading: false, label: t('sync_unsynced'), className: 'error' };
 }
 
 function vaultKeyClassStatus(kind, name) {
     const item = vaultItemSyncEntry(kind, name);
     if (!item) {
-        return { loading: true, label: '확인중', className: '' };
+        return { loading: true, label: t('sync_checking'), className: '' };
     }
     if (item.presentCount <= 1) {
-        return { loading: false, label: '유일키', className: 'pending' };
+        return { loading: false, label: t('key_class_unique'), className: 'pending' };
     }
     if (item.presentCount >= item.comparableCount && item.comparableCount > 0) {
-        return { loading: false, label: '글로벌키', className: 'active' };
+        return { loading: false, label: t('key_class_global'), className: 'active' };
     }
-    return { loading: false, label: '파편화 키', className: 'error' };
+    return { loading: false, label: t('key_class_fragmented'), className: 'error' };
 }
 
 function vaultDistributionStatus(kind, name) {
     const item = vaultItemSyncEntry(kind, name);
     if (!item) {
-        return { loading: true, label: '확인중', className: '' };
+        return { loading: true, label: t('sync_checking'), className: '' };
     }
     const label = `${item.exactCount}/${item.comparableCount}`;
     if (item.exactCount >= item.comparableCount && item.comparableCount > 0) {
@@ -278,7 +309,7 @@ function vaultDistributionStatus(kind, name) {
 
 function vaultTargetOptions(includeHost = true) {
     const options = [];
-    if (includeHost) options.push({ value: 'host', label: 'Host Vault' });
+    if (includeHost) options.push({ value: 'host', label: t('host_vault') });
     (state.vaults || []).forEach((vault) => {
         options.push({
             value: vault.vault_runtime_hash,
@@ -290,7 +321,7 @@ function vaultTargetOptions(includeHost = true) {
 
 function renderConfigRelations() {
     if (!state.configRelations.length) {
-        return '<div class="empty">같은 키의 LOCAL / EXTERNAL 관계가 아직 없습니다.</div>';
+        return `<div class="empty">${escapeHTML(t('empty_no_rows'))}</div>`;
     }
     const sections = ['LOCAL', 'EXTERNAL', 'TEMP'].map((scope) => {
         const rows = state.configRelations.filter((item) => String(item.scope || '').toUpperCase() === scope);
@@ -302,7 +333,7 @@ function renderConfigRelations() {
             </div>
         `;
     }).filter(Boolean).join('');
-    return sections || '<div class="empty">같은 키의 LOCAL / EXTERNAL 관계가 아직 없습니다.</div>';
+    return sections || `<div class="empty">${escapeHTML(t('empty_no_rows'))}</div>`;
 }
 
 function configRelationsByScope() {
@@ -314,10 +345,10 @@ function configRelationsByScope() {
 
 function renderSidebar() {
     const sections = [
-        { page: 'vaults', label: '볼트' },
-        { page: 'functions', label: '함수' },
-        { page: 'audit', label: '감사' },
-        { page: 'settings', label: '설정' }
+        { page: 'vaults', label: pageLabel('vaults') },
+        { page: 'functions', label: pageLabel('functions') },
+        { page: 'audit', label: pageLabel('audit') },
+        { page: 'settings', label: pageLabel('settings') }
     ];
 
     const navItems = sections.map((section) => {
@@ -344,11 +375,11 @@ function renderHeader() {
     const page = pageConfig[state.activePage];
     const context = pageContextText();
     const message = state.message ? `<div class="message ${escapeHTML(state.message.kind)}">${escapeHTML(state.message.text)}</div>` : '';
-    const breadcrumb = `${page.label} / ${activeTab()}`;
+    const breadcrumb = `${pageLabel(state.activePage)} / ${tabLabel(activeTab())}`;
     const headerContent = state.activePage === 'vaults' && state.selectedVault ? `
         <div class="workspace-title">
-            <div class="segmented-label">현재 볼트</div>
-            <h1>${escapeHTML(state.selectedVault.display_name || state.selectedVault.vault_name || '볼트 미선택')}</h1>
+            <div class="segmented-label">${escapeHTML(t('current_vault_items'))}</div>
+            <h1>${escapeHTML(state.selectedVault.display_name || state.selectedVault.vault_name || '-')}</h1>
             <p>${escapeHTML(state.selectedVault.vault_id || state.selectedVault.vault_runtime_hash || '-')}</p>
         </div>
     ` : `
@@ -370,10 +401,10 @@ function renderTopbarStatus() {
 }
 
 function pageContextText() {
-    if (state.activePage === 'vaults') return '볼트를 먼저 고르고, 그 안의 키와 환경값을 관리합니다.';
-    if (state.activePage === 'functions') return '함수 목록과 실행 흐름은 보조 작업으로 유지합니다.';
-    if (state.activePage === 'audit') return '감사 로그를 하나의 화면에서 조회합니다.';
-    return '설정은 작고 명확하게 유지합니다.';
+    if (state.activePage === 'vaults') return t('vault_inventory');
+    if (state.activePage === 'functions') return t('function_list');
+    if (state.activePage === 'audit') return t('tab_audit_log');
+    return t('ui_settings');
 }
 
 function renderSecondarySidebar() {
@@ -389,37 +420,37 @@ function renderSecondarySidebar() {
         state.ui.secondarySidebarHidden = false;
         state.ui.secondarySidebarHTML = `
             <div class="sidebar-section">
-                <div class="sidebar-label">전체</div>
+                <div class="sidebar-label">${escapeHTML(t('section_all'))}</div>
                 <div class="nav-list">
                     <a
-                        href="${routePath('vaults', '전체 볼트')}"
-                        class="nav-item${activeTab() === '전체 볼트' ? ' active' : ''}"
+                        href="${routePath('vaults', 'ALL_VAULTS')}"
+                        class="nav-item${activeTab() === 'ALL_VAULTS' ? ' active' : ''}"
                         data-action="set-tab"
-                        data-tab="전체 볼트"
+                        data-tab="ALL_VAULTS"
                     >
                         <span class="nav-item-main">
-                            <span>전체 볼트</span>
+                            <span>${escapeHTML(t('all_vaults'))}</span>
                         </span>
                     </a>
                     <a
-                        href="${routePath('vaults', 'Host Vault')}"
-                        class="nav-item${activeTab() === 'Host Vault' ? ' active' : ''}"
+                        href="${routePath('vaults', 'HOST_VAULT')}"
+                        class="nav-item${activeTab() === 'HOST_VAULT' ? ' active' : ''}"
                         data-action="set-tab"
-                        data-tab="Host Vault"
+                        data-tab="HOST_VAULT"
                     >
                         <span class="nav-item-main">
-                            <span>호스트 볼트</span>
+                            <span>${escapeHTML(t('host_vault'))}</span>
                         </span>
                     </a>
                 </div>
             </div>
             <div class="sidebar-section">
-                <div class="sidebar-label">로컬 볼트</div>
+                <div class="sidebar-label">${escapeHTML(t('section_local_vaults'))}</div>
                 <div class="nav-list">
                     ${vaults.map((item) => `
                         <a
                             href="/vaults/local/${encodeURIComponent(item.vault_runtime_hash)}"
-                            class="nav-item${activeTab() !== 'Host Vault' && state.selectedVault && item.vault_runtime_hash === state.selectedVault.vault_runtime_hash ? ' active' : ''}"
+                            class="nav-item${activeTab() !== 'HOST_VAULT' && state.selectedVault && item.vault_runtime_hash === state.selectedVault.vault_runtime_hash ? ' active' : ''}"
                             data-action="select-vault"
                             data-key="${escapeHTML(item.vault_runtime_hash)}"
                         >
@@ -428,7 +459,7 @@ function renderSecondarySidebar() {
                             </span>
                             ${renderStatusPill(item.status || 'active', statusClass(item.status || 'active'))}
                         </a>
-                    `).join('') || '<div class="empty">표시할 볼트가 없습니다.</div>'}
+                    `).join('') || `<div class="empty">${escapeHTML(t('no_vaults'))}</div>`}
                 </div>
             </div>
         `;
@@ -440,7 +471,7 @@ function renderSecondarySidebar() {
         state.ui.secondarySidebarHidden = false;
         state.ui.secondarySidebarHTML = `
             <div class="sidebar-section">
-                <div class="sidebar-label">함수 목록</div>
+                <div class="sidebar-label">${escapeHTML(t('section_functions'))}</div>
                 <div class="nav-list">
                     ${functions.map((item) => `
                         <a
@@ -454,7 +485,7 @@ function renderSecondarySidebar() {
                             </span>
                             ${renderStatusPill(item.status || 'active', statusClass(item.status || 'active'))}
                         </a>
-                    `).join('') || '<div class="empty">표시할 함수가 없습니다.</div>'}
+                    `).join('') || `<div class="empty">${escapeHTML(t('no_functions'))}</div>`}
                 </div>
             </div>
         `;
@@ -466,11 +497,11 @@ function renderSecondarySidebar() {
         state.ui.secondarySidebarHidden = false;
         state.ui.secondarySidebarHTML = `
             <div class="sidebar-section">
-                <div class="sidebar-label">감사 볼트</div>
+                <div class="sidebar-label">${escapeHTML(t('section_audit_vaults'))}</div>
                 <div class="nav-list">
                     ${vaults.map((item) => `
                         <a
-                            href="${routePath('audit', '감사 로그')}"
+                            href="${routePath('audit', 'AUDIT_LOG')}"
                             class="nav-item${state.auditVault === item.vault_runtime_hash ? ' active' : ''}"
                             data-action="audit-page-select-vault"
                             data-key="${escapeHTML(item.vault_runtime_hash)}"
@@ -480,7 +511,7 @@ function renderSecondarySidebar() {
                             </span>
                             ${renderStatusPill(item.status || 'active', statusClass(item.status || 'active'))}
                         </a>
-                    `).join('') || '<div class="empty">표시할 볼트가 없습니다.</div>'}
+                    `).join('') || `<div class="empty">${escapeHTML(t('no_vaults'))}</div>`}
                 </div>
             </div>
         `;
@@ -491,7 +522,7 @@ function renderSecondarySidebar() {
         state.ui.secondarySidebarHidden = false;
         state.ui.secondarySidebarHTML = `
             <div class="sidebar-section">
-                <div class="sidebar-label">설정</div>
+                <div class="sidebar-label">${escapeHTML(t('section_settings'))}</div>
                 <div class="nav-list">
                     ${page.tabs.map((tabName) => `
                         <a
@@ -501,7 +532,7 @@ function renderSecondarySidebar() {
                             data-tab="${escapeHTML(tabName)}"
                         >
                             <span class="nav-item-main">
-                                <span>${escapeHTML(tabName)}</span>
+                                <span>${escapeHTML(tabLabel(tabName))}</span>
                             </span>
                         </a>
                     `).join('')}
@@ -514,7 +545,7 @@ function renderSecondarySidebar() {
     state.ui.secondarySidebarHidden = false;
     state.ui.secondarySidebarHTML = `
         <div class="sidebar-section">
-            <div class="sidebar-label">${escapeHTML(page.label)}</div>
+            <div class="sidebar-label">${escapeHTML(pageLabel(state.activePage))}</div>
             <div class="nav-list">
                 ${page.tabs.map((tabName) => `
                     <a
@@ -524,7 +555,7 @@ function renderSecondarySidebar() {
                         data-tab="${escapeHTML(tabName)}"
                     >
                         <span class="nav-item-main">
-                            <span>${escapeHTML(tabName)}</span>
+                            <span>${escapeHTML(tabLabel(tabName))}</span>
                         </span>
                     </a>
                 `).join('')}
@@ -580,8 +611,8 @@ function selectedKeyRecord() {
 
 function renderVaults() {
     const tab = activeTab();
-    if (tab === '전체 볼트') return renderVaultInventory();
-    if (tab === 'Host Vault') return renderHostVault();
+    if (tab === 'ALL_VAULTS') return renderVaultInventory();
+    if (tab === 'HOST_VAULT') return renderHostVault();
     return renderVaultKeys();
 }
 
@@ -611,63 +642,63 @@ function renderVaultInventory() {
     state.ui.twoPane = true;
 
     renderCenterPane(
-        '볼트 현황',
+        t('vault_inventory'),
         `
             <div class="toolbar">
                 <div class="toolbar-group">
-                    <input class="field context-search" id="vault-search" type="search" placeholder="볼트 검색" value="${escapeHTML(state.globalQuery)}">
+                    <input class="field context-search" id="vault-search" type="search" placeholder="${escapeHTML(t('search_vaults'))}" value="${escapeHTML(state.globalQuery)}">
                 </div>
-                <span class="pill">${allVaultRows.length}개</span>
-                <button class="btn btn-soft" data-action="refresh-vaults">새로고침</button>
+                <span class="pill">${allVaultRows.length} ${escapeHTML(t('count_rows'))}</span>
+                <button class="btn btn-soft" data-action="refresh-vaults">${escapeHTML(t('refresh'))}</button>
             </div>
         `,
         renderTable([
             {
-                label: '볼트명',
+                label: t('table_vault_name'),
                 render: (row) => `<span>${escapeHTML(row.display_name || row.vault_name)}</span>`
             },
-            { label: '식별자', render: (row) => `<span class="code">${escapeHTML(row.vault_id || row.vault_runtime_hash)}</span>` },
-            { label: '경로', render: (row) => escapeHTML((row.managed_paths && row.managed_paths[0]) || '-') },
+            { label: t('table_identifier'), render: (row) => `<span class="code">${escapeHTML(row.vault_id || row.vault_runtime_hash)}</span>` },
+            { label: t('table_path'), render: (row) => escapeHTML((row.managed_paths && row.managed_paths[0]) || '-') },
             { label: 'IP', render: (row) => escapeHTML(row.ip || '-') },
-            { label: '상태', render: (row) => renderStatusPill(row.status, statusClass(row.status)) }
+            { label: t('table_status'), render: (row) => renderStatusPill(row.status, statusClass(row.status)) }
         ], allVaultRows, (row) => {
             const classes = [];
-            if ((activeTab() === 'Host Vault' && row.is_host) || (activeTab() !== 'Host Vault' && !row.is_host && state.selectedVault && row.vault_runtime_hash === state.selectedVault.vault_runtime_hash)) classes.push('is-selected');
+            if ((activeTab() === 'HOST_VAULT' && row.is_host) || (activeTab() !== 'HOST_VAULT' && !row.is_host && state.selectedVault && row.vault_runtime_hash === state.selectedVault.vault_runtime_hash)) classes.push('is-selected');
             classes.push('is-clickable');
             return classes.join(' ');
         }, (row) => row.is_host
-            ? `data-action="set-tab" data-tab="Host Vault"`
+            ? `data-action="set-tab" data-tab="HOST_VAULT"`
             : `data-action="select-vault" data-key="${escapeHTML(row.vault_runtime_hash)}"`)
     );
 
-    const detail = activeTab() === 'Host Vault' ? hostVaultRow() : (state.vaultDetail || selectedVaultRecord());
-    renderRightPane('볼트 상세', detail ? `
+    const detail = activeTab() === 'HOST_VAULT' ? hostVaultRow() : (state.vaultDetail || selectedVaultRecord());
+    renderRightPane(t('vault_detail'), detail ? `
         <div class="stack">
             <div class="card">
-                <div class="card-title">선택된 볼트</div>
+                <div class="card-title">${escapeHTML(t('selected_vault'))}</div>
                 ${renderKVGrid([
-                    ['이름', detail.display_name || detail.vault_name || '-'],
-                    ['식별자', detail.vault_id || detail.vault_runtime_hash || '-'],
-                    ['경로', (detail.managed_paths && detail.managed_paths[0]) || '-'],
+                    [t('name'), detail.display_name || detail.vault_name || '-'],
+                    [t('table_identifier'), detail.vault_id || detail.vault_runtime_hash || '-'],
+                    [t('table_path'), (detail.managed_paths && detail.managed_paths[0]) || '-'],
                     ['IP', detail.ip || '-'],
-                    ['상태', detail.status || '-']
+                    [t('table_status'), detail.status || '-']
                 ])}
             </div>
             <form class="stack" data-form="save-vault-meta">
                 <div class="card">
-                    <div class="card-title">기본 정보</div>
+                    <div class="card-title">${escapeHTML(t('summary'))}</div>
                     <div class="stack">
-                        <div class="kv"><span class="label">볼트 이름</span><input class="field" name="display_name" value="${escapeHTML(detail.display_name || '')}"></div>
-                        <div class="kv"><span class="label">설명</span><textarea class="textarea" name="description">${escapeHTML(detail.description || '')}</textarea></div>
-                        <div class="kv"><span class="label">태그 JSON</span><textarea class="textarea" name="tags_json">${escapeHTML(detail.tags_json || '[]')}</textarea></div>
+                        <div class="kv"><span class="label">${escapeHTML(t('table_vault_name'))}</span><input class="field" name="display_name" value="${escapeHTML(detail.display_name || '')}"></div>
+                        <div class="kv"><span class="label">${escapeHTML(t('description'))}</span><textarea class="textarea" name="description">${escapeHTML(detail.description || '')}</textarea></div>
+                        <div class="kv"><span class="label">${escapeHTML(t('tags_json'))}</span><textarea class="textarea" name="tags_json">${escapeHTML(detail.tags_json || '[]')}</textarea></div>
                     </div>
                 </div>
                 <div class="toolbar">
-                    <button class="btn btn-primary" type="submit">저장</button>
+                    <button class="btn btn-primary" type="submit">${escapeHTML(t('save'))}</button>
                 </div>
             </form>
         </div>
-    ` : '<div class="empty">왼쪽에서 볼트를 선택하세요.</div>');
+    ` : `<div class="empty">${escapeHTML(t('selected_vault_prompt'))}</div>`);
 }
 
 function renderHostVault() {
@@ -705,26 +736,26 @@ function renderHostVault() {
     state.ui.twoPane = true;
 
     renderCenterPane(
-        '호스트 볼트',
+        t('host_vault_title'),
         `
             <div class="toolbar">
                 <div class="toolbar-group">
-                    <span class="segmented-label">표시 대상</span>
-                    <div class="segmented" role="tablist" aria-label="표시 대상">
-                        <button class="btn ${state.vaultItemKind === 'ALL' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="ALL" aria-pressed="${state.vaultItemKind === 'ALL' ? 'true' : 'false'}">전체</button>
-                        <button class="btn ${state.vaultItemKind === 'VE' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="VE" aria-pressed="${state.vaultItemKind === 'VE' ? 'true' : 'false'}">환경값</button>
-                        <button class="btn ${state.vaultItemKind === 'VK' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="VK" aria-pressed="${state.vaultItemKind === 'VK' ? 'true' : 'false'}">키</button>
+                    <span class="segmented-label">${escapeHTML(t('toolbar_scope'))}</span>
+                    <div class="segmented" role="tablist" aria-label="${escapeHTML(t('toolbar_scope'))}">
+                        <button class="btn ${state.vaultItemKind === 'ALL' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="ALL" aria-pressed="${state.vaultItemKind === 'ALL' ? 'true' : 'false'}">${escapeHTML(t('filter_all'))}</button>
+                        <button class="btn ${state.vaultItemKind === 'VE' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="VE" aria-pressed="${state.vaultItemKind === 'VE' ? 'true' : 'false'}">${escapeHTML(t('filter_configs'))}</button>
+                        <button class="btn ${state.vaultItemKind === 'VK' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="VK" aria-pressed="${state.vaultItemKind === 'VK' ? 'true' : 'false'}">${escapeHTML(t('filter_keys'))}</button>
                     </div>
-                    <input class="field context-search" id="key-search" type="search" placeholder="호스트 볼트 안에서 검색" value="${escapeHTML(state.globalQuery)}">
+                    <input class="field context-search" id="key-search" type="search" placeholder="${escapeHTML(t('search_host_vault'))}" value="${escapeHTML(state.globalQuery)}">
                 </div>
-                <span class="pill">${itemRows.length}개 항목</span>
+                <span class="pill">${itemRows.length} ${escapeHTML(t('count_items'))}</span>
             </div>
         `,
         renderTable([
-            { label: '종류', render: (row) => `<span class="pill ${row.item_kind === 'VE' ? 'kind-ve' : 'kind-vk'}">${escapeHTML(vaultKindLabel(row.item_kind))}</span>` },
-            { label: '키명', render: (row) => `<span>${escapeHTML(row.name)}</span>` },
-            { label: '키값', render: (row) => `<span class="code">${escapeHTML(itemIdentifier(row))}</span>` },
-            { label: '범위', render: (row) => renderStatusPill(row.scope || (row.item_kind === 'VE' ? 'LOCAL' : 'TEMP'), scopeClass(row.scope || (row.item_kind === 'VE' ? 'LOCAL' : 'TEMP'))) }
+            { label: t('table_kind'), render: (row) => `<span class="pill ${row.item_kind === 'VE' ? 'kind-ve' : 'kind-vk'}">${escapeHTML(vaultKindLabel(row.item_kind))}</span>` },
+            { label: t('table_name'), render: (row) => `<span>${escapeHTML(row.name)}</span>` },
+            { label: t('table_value'), render: (row) => `<span class="code">${escapeHTML(itemIdentifier(row))}</span>` },
+            { label: t('table_scope'), render: (row) => renderStatusPill(row.scope || (row.item_kind === 'VE' ? 'LOCAL' : 'TEMP'), scopeClass(row.scope || (row.item_kind === 'VE' ? 'LOCAL' : 'TEMP'))) }
         ], itemRows, (row) => {
             const classes = [];
             if (row.name === selectedItemName && row.item_kind === selectedItemKind) classes.push('is-selected');
@@ -733,55 +764,55 @@ function renderHostVault() {
         }, (row) => `data-action="select-host-item" data-kind="${escapeHTML(row.item_kind)}" data-key="${escapeHTML(row.name)}"`)
     );
 
-    renderRightPane(isConfigItem ? '환경값 상세' : '키 상세', `
+    renderRightPane(isConfigItem ? t('config_detail') : t('key_detail'), `
         <div class="stack">
             ${canMoveItem ? `
                 <form class="stack" data-form="${isConfigItem ? 'promote-config' : 'promote-key'}">
                     <div class="card">
-                        <div class="card-title">${isConfigItem ? '환경값 이동' : '키 이동'}</div>
+                        <div class="card-title">${escapeHTML(isConfigItem ? t('move_config') : t('move_key'))}</div>
                         <div class="stack">
-                            <div class="kv"><span class="label">대상 볼트</span><select class="select" name="target_vault">${renderTargetOptions(vaultTargetOptions(true), 'host')}</select></div>
-                            <div class="kv"><span class="label">대상 범위</span><select class="select" name="target_scope">${renderOptions(isConfigItem ? ['LOCAL', 'EXTERNAL', 'TEMP'] : ['TEMP', 'LOCAL', 'EXTERNAL'], detail?.scope || (isConfigItem ? 'LOCAL' : 'TEMP'))}</select></div>
-                            <div class="kv"><span class="label">보낼 값</span><textarea class="textarea" name="move_value" placeholder="이동할 값을 입력하거나 확인하세요">${escapeHTML(visibleValue || '')}</textarea></div>
+                            <div class="kv"><span class="label">${escapeHTML(t('target_vault'))}</span><select class="select" name="target_vault">${renderTargetOptions(vaultTargetOptions(true), 'host')}</select></div>
+                            <div class="kv"><span class="label">${escapeHTML(t('target_scope'))}</span><select class="select" name="target_scope">${renderOptions(isConfigItem ? ['LOCAL', 'EXTERNAL', 'TEMP'] : ['TEMP', 'LOCAL', 'EXTERNAL'], detail?.scope || (isConfigItem ? 'LOCAL' : 'TEMP'))}</select></div>
+                            <div class="kv"><span class="label">${escapeHTML(t('value_to_send'))}</span><textarea class="textarea" name="move_value" placeholder="${escapeHTML(t('move_value_placeholder'))}">${escapeHTML(visibleValue || '')}</textarea></div>
                         </div>
-                        <div class="muted">${isConfigItem ? 'Host Vault 환경값을 다른 볼트로 보냅니다. LOCAL / EXTERNAL 관계도 여기서 정리합니다.' : 'Host Vault 키를 다른 볼트로 보냅니다.'}</div>
+                        <div class="muted">${escapeHTML(isConfigItem ? t('host_config_move_help') : t('host_key_move_help'))}</div>
                     </div>
-                    <button class="btn btn-soft" type="submit"${visibleValue ? '' : ' disabled'}>${isConfigItem ? '환경값 이동' : '키 이동'}</button>
+                    <button class="btn btn-soft" type="submit"${visibleValue ? '' : ' disabled'}>${escapeHTML(isConfigItem ? t('move_config') : t('move_key'))}</button>
                 </form>
             ` : ''}
             <form class="stack" data-form="${isConfigItem ? 'save-host-config' : 'save-host-key'}">
                 <div class="card">
-                    <div class="card-title">${detailName ? '항목 상세' : (isConfigItem ? '새 환경값' : '새 키')}</div>
+                    <div class="card-title">${escapeHTML(detailName ? t('selected_item') : (isConfigItem ? t('new_config') : t('new_key')))}</div>
                     <div class="stack">
-                        <div class="kv"><span class="label">${isConfigItem ? '환경값 이름' : '키 이름'}</span><input class="field" name="${isConfigItem ? 'key' : 'name'}" value="${escapeHTML(detailName || '')}" ${detailName ? 'readonly' : ''}></div>
+                        <div class="kv"><span class="label">${escapeHTML(isConfigItem ? t('config_name') : t('key_name'))}</span><input class="field" name="${isConfigItem ? 'key' : 'name'}" value="${escapeHTML(detailName || '')}" ${detailName ? 'readonly' : ''}></div>
                         <div class="kv">
-                            <span class="label">${isConfigItem ? '환경값' : '키 값'}</span>
+                            <span class="label">${escapeHTML(isConfigItem ? t('config_value') : t('key_value'))}</span>
                             <div class="row" style="align-items:center;">
-                                <button class="btn btn-soft" type="button" data-action="toggle-reveal">${state.revealValue ? '가리기' : '보기'}</button>
-                                ${state.revealValue && visibleValue ? `<button class="btn btn-soft" type="button" data-action="copy-value">복사</button>` : ''}
+                                <button class="btn btn-soft" type="button" data-action="toggle-reveal">${escapeHTML(state.revealValue ? t('hide') : t('reveal'))}</button>
+                                ${state.revealValue && visibleValue ? `<button class="btn btn-soft" type="button" data-action="copy-value">${escapeHTML(t('copy'))}</button>` : ''}
                             </div>
-                            <textarea class="textarea" name="value" placeholder="${detailName ? '새 값을 입력하면 덮어씁니다' : '필수'}">${escapeHTML(state.revealValue ? (visibleValue || '') : '••••••••••••')}</textarea>
+                            <textarea class="textarea" name="value" placeholder="${escapeHTML(detailName ? t('overwrite_placeholder') : t('required'))}">${escapeHTML(state.revealValue ? (visibleValue || '') : '••••••••••••')}</textarea>
                         </div>
-                        <div class="kv"><span class="label">범위</span><select class="select" name="scope">${renderOptions(isConfigItem ? ['LOCAL', 'EXTERNAL', 'TEMP'] : ['TEMP', 'LOCAL', 'EXTERNAL'], detail?.scope || (isConfigItem ? 'LOCAL' : 'TEMP'))}</select></div>
+                        <div class="kv"><span class="label">${escapeHTML(t('table_scope'))}</span><select class="select" name="scope">${renderOptions(isConfigItem ? ['LOCAL', 'EXTERNAL', 'TEMP'] : ['TEMP', 'LOCAL', 'EXTERNAL'], detail?.scope || (isConfigItem ? 'LOCAL' : 'TEMP'))}</select></div>
                     </div>
                 </div>
                 <div class="toolbar">
-                    <button class="btn btn-primary" type="submit">${detailName ? '저장' : '생성'}</button>
+                    <button class="btn btn-primary" type="submit">${escapeHTML(detailName ? t('save') : t('create'))}</button>
                 </div>
             </form>
             ${isConfigItem ? `
                 <details class="card" open>
-                    <summary class="card-title">LOCAL / EXTERNAL 관계</summary>
+                    <summary class="card-title">${escapeHTML(t('local_external_relations'))}</summary>
                     ${renderConfigRelations()}
                 </details>
             ` : `
                 <div class="card">
-                    <div class="card-title">부가 정보</div>
+                    <div class="card-title">${escapeHTML(t('additional_info'))}</div>
                     ${renderKVGrid([
-                        ['식별자', detail?.token || detail?.ref || '-'],
-                        ['범위', detail?.scope || 'TEMP'],
-                        ['상태', detail?.status || 'temp'],
-                        ['저장소', 'Host Vault']
+                        [t('table_identifier'), detail?.token || detail?.ref || '-'],
+                        [t('table_scope'), detail?.scope || 'TEMP'],
+                        [t('table_status'), detail?.status || 'temp'],
+                        [t('storage'), t('host_vault_storage')]
                     ])}
                 </div>
             `}
@@ -820,7 +851,7 @@ function renderVaultKeys() {
     };
     const isConfigItem = selectedItemKind === 'VE';
     const visibleValue = isConfigItem ? state.configDetail?.value : state.keyDetail?.value;
-    const itemTitle = isConfigItem ? '환경값 상세' : '키 상세';
+    const itemTitle = isConfigItem ? t('config_detail') : t('key_detail');
     const detailName = isConfigItem ? state.selectedConfigKey : state.selectedKey?.name;
     const itemRefValue = isConfigItem
         ? (detailName || state.configDetail?.key || '')
@@ -836,31 +867,31 @@ function renderVaultKeys() {
     state.ui.twoPane = true;
 
     renderCenterPane(
-        '현재 볼트 항목',
+        t('current_vault_items'),
         `
             <div class="toolbar">
                 <div class="toolbar-group">
                     <div class="toolbar-group">
-                        <span class="segmented-label">표시 대상</span>
-                        <div class="segmented" role="tablist" aria-label="표시 대상">
-                            <button class="btn ${state.vaultItemKind === 'ALL' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="ALL" aria-pressed="${state.vaultItemKind === 'ALL' ? 'true' : 'false'}">전체</button>
-                            <button class="btn ${state.vaultItemKind === 'VE' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="VE" aria-pressed="${state.vaultItemKind === 'VE' ? 'true' : 'false'}">환경값</button>
-                            <button class="btn ${state.vaultItemKind === 'VK' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="VK" aria-pressed="${state.vaultItemKind === 'VK' ? 'true' : 'false'}">키</button>
+                        <span class="segmented-label">${escapeHTML(t('toolbar_scope'))}</span>
+                        <div class="segmented" role="tablist" aria-label="${escapeHTML(t('toolbar_scope'))}">
+                            <button class="btn ${state.vaultItemKind === 'ALL' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="ALL" aria-pressed="${state.vaultItemKind === 'ALL' ? 'true' : 'false'}">${escapeHTML(t('filter_all'))}</button>
+                            <button class="btn ${state.vaultItemKind === 'VE' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="VE" aria-pressed="${state.vaultItemKind === 'VE' ? 'true' : 'false'}">${escapeHTML(t('filter_configs'))}</button>
+                            <button class="btn ${state.vaultItemKind === 'VK' ? 'btn-primary' : 'btn-soft'}" data-action="set-vault-kind" data-kind="VK" aria-pressed="${state.vaultItemKind === 'VK' ? 'true' : 'false'}">${escapeHTML(t('filter_keys'))}</button>
                         </div>
                     </div>
-                    <input class="field context-search" id="key-search" type="search" placeholder="현재 볼트 안에서 검색" value="${escapeHTML(state.globalQuery)}">
+                    <input class="field context-search" id="key-search" type="search" placeholder="${escapeHTML(t('search_current_vault'))}" value="${escapeHTML(state.globalQuery)}">
                 </div>
-                <span class="pill">${itemRows.length}개 항목</span>
-                <button class="btn btn-primary" data-action="new-key">${state.vaultItemKind === 'VE' ? '새 환경값' : '새 키'}</button>
+                <span class="pill">${itemRows.length} ${escapeHTML(t('count_items'))}</span>
+                <button class="btn btn-primary" data-action="new-key">${state.vaultItemKind === 'VE' ? escapeHTML(t('new_config')) : escapeHTML(t('new_key'))}</button>
             </div>
         `,
         renderTable([
-            { label: '종류', render: (row) => `<span class="pill ${row.item_kind === 'VE' ? 'kind-ve' : 'kind-vk'}">${escapeHTML(vaultKindLabel(row.item_kind))}</span>` },
-            { label: '키명', render: (row) => `<span>${escapeHTML(row.name)}</span>` },
-            { label: '키값', render: (row) => `<span class="code">${escapeHTML(itemIdentifier(row))}</span>` },
-            { label: '동기화여부', render: (row) => renderStatusPill(vaultSyncStatus(row.item_kind, row.name).label, vaultSyncStatus(row.item_kind, row.name).className) },
-            { label: '키 분류', render: (row) => renderStatusPill(vaultKeyClassStatus(row.item_kind, row.name).label, vaultKeyClassStatus(row.item_kind, row.name).className) },
-            { label: '분포', render: (row) => renderSyncStatus(row.item_kind, row.name) }
+            { label: t('table_kind'), render: (row) => `<span class="pill ${row.item_kind === 'VE' ? 'kind-ve' : 'kind-vk'}">${escapeHTML(vaultKindLabel(row.item_kind))}</span>` },
+            { label: t('table_name'), render: (row) => `<span>${escapeHTML(row.name)}</span>` },
+            { label: t('table_value'), render: (row) => `<span class="code">${escapeHTML(itemIdentifier(row))}</span>` },
+            { label: t('table_sync'), render: (row) => renderStatusPill(vaultSyncStatus(row.item_kind, row.name).label, vaultSyncStatus(row.item_kind, row.name).className) },
+            { label: t('table_key_class'), render: (row) => renderStatusPill(vaultKeyClassStatus(row.item_kind, row.name).label, vaultKeyClassStatus(row.item_kind, row.name).className) },
+            { label: t('table_distribution'), render: (row) => renderSyncStatus(row.item_kind, row.name) }
         ], itemRows, (row) => {
             const classes = [];
             if (row.name === selectedItemName && row.item_kind === selectedItemKind) classes.push('is-selected');
@@ -879,82 +910,82 @@ function renderVaultKeys() {
             ${canMoveItem ? `
                 <form class="stack" data-form="${isConfigItem ? 'promote-config' : 'promote-key'}">
                     <div class="card">
-                        <div class="card-title">${isConfigItem ? '환경값 이동' : '키 이동'}</div>
+                        <div class="card-title">${escapeHTML(isConfigItem ? t('move_config') : t('move_key'))}</div>
                         <div class="stack">
-                            <div class="kv"><span class="label">대상 볼트</span><select class="select" name="target_vault">${renderTargetOptions(vaultTargetOptions(true), state.selectedVault ? state.selectedVault.vault_runtime_hash : 'host')}</select></div>
-                            <div class="kv"><span class="label">대상 범위</span><select class="select" name="target_scope">${renderOptions(isConfigItem ? ['LOCAL', 'EXTERNAL', 'TEMP'] : ['TEMP', 'LOCAL', 'EXTERNAL'], isConfigItem ? (state.configDetail?.scope || 'LOCAL') : (state.keyDetail?.scope || 'TEMP'))}</select></div>
-                            <div class="kv"><span class="label">보낼 값</span><textarea class="textarea" name="move_value" placeholder="이동할 값을 입력하거나 확인하세요">${escapeHTML(visibleValue || '')}</textarea></div>
+                            <div class="kv"><span class="label">${escapeHTML(t('target_vault'))}</span><select class="select" name="target_vault">${renderTargetOptions(vaultTargetOptions(true), state.selectedVault ? state.selectedVault.vault_runtime_hash : 'host')}</select></div>
+                            <div class="kv"><span class="label">${escapeHTML(t('target_scope'))}</span><select class="select" name="target_scope">${renderOptions(isConfigItem ? ['LOCAL', 'EXTERNAL', 'TEMP'] : ['TEMP', 'LOCAL', 'EXTERNAL'], isConfigItem ? (state.configDetail?.scope || 'LOCAL') : (state.keyDetail?.scope || 'TEMP'))}</select></div>
+                            <div class="kv"><span class="label">${escapeHTML(t('value_to_send'))}</span><textarea class="textarea" name="move_value" placeholder="${escapeHTML(t('move_value_placeholder'))}">${escapeHTML(visibleValue || '')}</textarea></div>
                         </div>
-                        <div class="muted">${isConfigItem ? '선택한 환경값을 다른 볼트나 Host Vault로 보냅니다. LOCAL / EXTERNAL 관계도 여기서 정리합니다.' : '선택한 키를 다른 볼트나 Host Vault로 보냅니다.'}</div>
+                        <div class="muted">${escapeHTML(isConfigItem ? t('vault_config_move_help') : t('vault_key_move_help'))}</div>
                     </div>
-                    <button class="btn btn-soft" type="submit"${visibleValue ? '' : ' disabled'}>${isConfigItem ? '환경값 이동' : '키 이동'}</button>
+                    <button class="btn btn-soft" type="submit"${visibleValue ? '' : ' disabled'}>${escapeHTML(isConfigItem ? t('move_config') : t('move_key'))}</button>
                 </form>
             ` : ''}
             <form class="stack" data-form="${isConfigItem ? 'save-agent-config' : 'save-key'}">
                 <div class="card">
-                    <div class="card-title">${detailName ? '항목 상세' : (isConfigItem ? '새 환경값' : '새 키')}</div>
+                    <div class="card-title">${escapeHTML(detailName ? t('selected_item') : (isConfigItem ? t('new_config') : t('new_key')))}</div>
                     <div class="stack">
-                        <div class="kv"><span class="label">${isConfigItem ? '환경값 이름' : '키 이름'}</span><input class="field" name="${isConfigItem ? 'key' : 'name'}" value="${escapeHTML(detailName || '')}" ${detailName ? 'readonly' : ''}></div>
+                        <div class="kv"><span class="label">${escapeHTML(isConfigItem ? t('config_name') : t('key_name'))}</span><input class="field" name="${isConfigItem ? 'key' : 'name'}" value="${escapeHTML(detailName || '')}" ${detailName ? 'readonly' : ''}></div>
                         <div class="kv">
-                            <span class="label">${isConfigItem ? '환경값' : '키 값'}</span>
+                            <span class="label">${escapeHTML(isConfigItem ? t('config_value') : t('key_value'))}</span>
                             <div class="row" style="align-items:center;">
-                                <button class="btn btn-soft" type="button" data-action="toggle-reveal">${state.revealValue ? '가리기' : '보기'}</button>
-                                ${state.revealValue && visibleValue ? `<button class="btn btn-soft" type="button" data-action="copy-value">복사</button>` : ''}
+                                <button class="btn btn-soft" type="button" data-action="toggle-reveal">${escapeHTML(state.revealValue ? t('hide') : t('reveal'))}</button>
+                                ${state.revealValue && visibleValue ? `<button class="btn btn-soft" type="button" data-action="copy-value">${escapeHTML(t('copy'))}</button>` : ''}
                             </div>
-                            <textarea class="textarea" name="value" placeholder="${detailName ? '새 값을 입력하면 덮어씁니다' : '필수'}">${escapeHTML(state.revealValue ? (visibleValue || '') : '••••••••••••')}</textarea>
+                            <textarea class="textarea" name="value" placeholder="${escapeHTML(detailName ? t('overwrite_placeholder') : t('required'))}">${escapeHTML(state.revealValue ? (visibleValue || '') : '••••••••••••')}</textarea>
                         </div>
                         ${isConfigItem ? `
                             <input type="hidden" name="scope" value="${escapeHTML(state.configDetail?.scope || 'LOCAL')}">
                             <input type="hidden" name="status" value="${escapeHTML(state.configDetail?.status || 'active')}">
                         ` : `
-                            <div class="kv"><span class="label">설명</span><textarea class="textarea" name="description">${escapeHTML(key && key.description ? key.description : '')}</textarea></div>
-                            <div class="kv"><span class="label">태그 JSON</span><textarea class="textarea" name="tags_json">${escapeHTML(key && key.tags_json ? key.tags_json : '[]')}</textarea></div>
+                            <div class="kv"><span class="label">${escapeHTML(t('description'))}</span><textarea class="textarea" name="description">${escapeHTML(key && key.description ? key.description : '')}</textarea></div>
+                            <div class="kv"><span class="label">${escapeHTML(t('tags_json'))}</span><textarea class="textarea" name="tags_json">${escapeHTML(key && key.tags_json ? key.tags_json : '[]')}</textarea></div>
                         `}
                     </div>
                 </div>
                 <div class="toolbar">
-                    <button class="btn btn-primary" type="submit">${detailName ? '저장' : '생성'}</button>
-                    ${detailName ? `<button class="btn btn-danger" type="button" data-action="${isConfigItem ? 'delete-agent-config' : 'delete-key'}">삭제</button>` : ''}
+                    <button class="btn btn-primary" type="submit">${escapeHTML(detailName ? t('save') : t('create'))}</button>
+                    ${detailName ? `<button class="btn btn-danger" type="button" data-action="${isConfigItem ? 'delete-agent-config' : 'delete-key'}">${escapeHTML(t('delete'))}</button>` : ''}
                 </div>
             </form>
             ${!isConfigItem ? `
                 <details class="card">
-                    <summary class="card-title">부가 정보</summary>
+                    <summary class="card-title">${escapeHTML(t('additional_info'))}</summary>
                     ${renderKVGrid([
-                        ['연결 수', summary ? summary.bindings_total || summary.bindings_count || 0 : 0],
-                        ['사용 수', usageCount || 0],
-                        ['범위', key ? (key.scope || '-') : '-'],
-                        ['상태', key ? (key.status || '-') : '-']
+                        [t('bindings_count'), summary ? summary.bindings_total || summary.bindings_count || 0 : 0],
+                        [t('usage_count'), usageCount || 0],
+                        [t('table_scope'), key ? (key.scope || '-') : '-'],
+                        [t('table_status'), key ? (key.status || '-') : '-']
                     ])}
-                    ${bindings.length ? `<div class="stack" style="margin-top:12px;">${bindings.map((item) => `<div class="value">${escapeHTML(item.binding_type)} / ${escapeHTML(item.target_name)} / ${escapeHTML(item.field_key || '-')}</div>`).join('')}</div>` : '<div class="empty">연결 정보 없음</div>'}
-                    ${recentAudit.length ? `<div class="stack" style="margin-top:12px;">${recentAudit.map((item) => `<div class="value">${escapeHTML(item.action || item.event_type || 'event')} · ${escapeHTML(item.created_at || item.timestamp || '-')}</div>`).join('')}</div>` : '<div class="empty">감사 로그 없음</div>'}
+                    ${bindings.length ? `<div class="stack" style="margin-top:12px;">${bindings.map((item) => `<div class="value">${escapeHTML(item.binding_type)} / ${escapeHTML(item.target_name)} / ${escapeHTML(item.field_key || '-')}</div>`).join('')}</div>` : `<div class="empty">${escapeHTML(t('no_binding_info'))}</div>`}
+                    ${recentAudit.length ? `<div class="stack" style="margin-top:12px;">${recentAudit.map((item) => `<div class="value">${escapeHTML(item.action || item.event_type || 'event')} · ${escapeHTML(item.created_at || item.timestamp || '-')}</div>`).join('')}</div>` : `<div class="empty">${escapeHTML(t('no_audit_info'))}</div>`}
                 </details>
                 <form class="stack" data-form="save-key-fields">
                     <details class="card">
-                        <summary class="card-title">필드 편집</summary>
+                        <summary class="card-title">${escapeHTML(t('field_edit'))}</summary>
                         <textarea class="textarea" name="fields_json">${escapeHTML(key && summary && summary.key && summary.key.fields ? formatJSON(summary.key.fields.map((field) => ({ key: field.key, type: field.type, value: '' }))) : '[]')}</textarea>
-                        <button class="btn" type="submit"${key ? '' : ' disabled'}>필드 저장</button>
+                        <button class="btn" type="submit"${key ? '' : ' disabled'}>${escapeHTML(t('save_fields'))}</button>
                     </details>
                 </form>
             ` : ''}
             ${isConfigItem ? `
                 <details class="card" open>
-                    <summary class="card-title">LOCAL / EXTERNAL 관계</summary>
+                    <summary class="card-title">${escapeHTML(t('local_external_relations'))}</summary>
                     ${renderConfigRelations()}
                 </details>
             ` : ''}
         </div>
-    ` : '<div class="empty">볼트를 먼저 선택하세요.</div>');
+    ` : `<div class="empty">${escapeHTML(t('select_vault_prompt'))}</div>`);
 }
 
 function renderVaultBindings() {
     const keys = state.vaultKeys.filter((item) => matchesQuery(item.name));
     renderListPane(
-        'Binding focus',
+        t('binding_focus'),
         `
             <div class="card">
-                <div class="card-title">Vault Context</div>
-                <div class="value">${escapeHTML(state.selectedVault ? state.selectedVault.vault_runtime_hash : 'No vault selected')}</div>
+                <div class="card-title">${escapeHTML(t('vault_context'))}</div>
+                <div class="value">${escapeHTML(state.selectedVault ? state.selectedVault.vault_runtime_hash : t('no_vault_selected'))}</div>
             </div>
         `,
         state.selectedVault ? renderMiniList(
@@ -966,35 +997,35 @@ function renderVaultBindings() {
             },
             (item) => `<span>${escapeHTML(item.name)}</span>`,
             (item) => renderStatusPill(item.scope || 'LOCAL', scopeClass(item.scope))
-        ) : '<div class="empty">Select a vault first.</div>'
+        ) : `<div class="empty">${escapeHTML(t('select_vault_first'))}</div>`
     );
 
     const bindings = state.keyBindings || [];
     renderCenterPane(
-        'Key Bindings',
-        `<div class="toolbar"><span class="pill">${bindings.length} bindings</span></div>`,
+        t('key_bindings'),
+        `<div class="toolbar"><span class="pill">${bindings.length} ${escapeHTML(t('binding_count'))}</span></div>`,
         renderTable([
-            { label: 'Target Type', render: (row) => escapeHTML(row.binding_type || '-') },
-            { label: 'Target Name', render: (row) => escapeHTML(row.target_name || '-') },
-            { label: 'Field', render: (row) => escapeHTML(row.field_key || '-') },
-            { label: 'Required', render: (row) => escapeHTML(String(row.required)) },
-            { label: 'Ref', render: (row) => `<span class="code">${escapeHTML(row.ref_canonical || '-')}</span>` }
+            { label: t('target_type'), render: (row) => escapeHTML(row.binding_type || '-') },
+            { label: t('target_name'), render: (row) => escapeHTML(row.target_name || '-') },
+            { label: t('field'), render: (row) => escapeHTML(row.field_key || '-') },
+            { label: t('required'), render: (row) => escapeHTML(String(row.required)) },
+            { label: t('ref'), render: (row) => `<span class="code">${escapeHTML(row.ref_canonical || '-')}</span>` }
         ], bindings, () => '')
     );
 
-    renderRightPane('Edit bindings', state.selectedKey ? `
+    renderRightPane(t('edit_bindings'), state.selectedKey ? `
         <div class="stack">
             <div class="card">
-                <div class="card-title">Selected Key</div>
+                <div class="card-title">${escapeHTML(t('selected_key'))}</div>
                 ${renderKVGrid([
-                    ['Name', state.selectedKey.name],
-                    ['Scope', state.selectedKey.scope || '-'],
-                    ['Vault', state.selectedVault ? state.selectedVault.vault_runtime_hash : '-']
+                    [t('name'), state.selectedKey.name],
+                    [t('table_scope'), state.selectedKey.scope || '-'],
+                    [t('page_vaults'), state.selectedVault ? state.selectedVault.vault_runtime_hash : '-']
                 ])}
             </div>
             <form class="stack" data-form="replace-key-bindings">
                 <div class="card">
-                    <div class="card-title">Bindings JSON</div>
+                    <div class="card-title">${escapeHTML(t('bindings_json'))}</div>
                     <textarea class="textarea" name="bindings_json">${escapeHTML(formatJSON((state.keyBindings || []).map((item) => ({
                         binding_id: item.binding_id,
                         binding_type: item.binding_type,
@@ -1004,26 +1035,26 @@ function renderVaultBindings() {
                     }))))}</textarea>
                 </div>
                 <div class="toolbar">
-                    <button class="btn btn-primary" type="submit">Replace Bindings</button>
-                    <button class="btn btn-danger" type="button" data-action="delete-all-bindings">Delete All</button>
+                    <button class="btn btn-primary" type="submit">${escapeHTML(t('replace'))}</button>
+                    <button class="btn btn-danger" type="button" data-action="delete-all-bindings">${escapeHTML(t('delete_all_bindings'))}</button>
                 </div>
             </form>
         </div>
-    ` : '<div class="empty">Select a key to manage bindings.</div>');
+    ` : `<div class="empty">${escapeHTML(t('select_key_manage_bindings'))}</div>`);
 }
 
 function renderVaultAudit() {
     const useKeyMode = !!state.auditKey;
     const rows = useKeyMode ? state.keyAudit : state.vaultAudit;
     renderListPane(
-        'Audit scope',
+        t('audit_scope'),
         `
             <div class="stack">
                 <div class="card">
-                    <div class="card-title">Vault</div>
-                    <div class="value">${escapeHTML(state.selectedVault ? state.selectedVault.display_name || state.selectedVault.vault_name : 'No vault selected')}</div>
+                    <div class="card-title">${escapeHTML(t('page_vaults'))}</div>
+                    <div class="value">${escapeHTML(state.selectedVault ? state.selectedVault.display_name || state.selectedVault.vault_name : t('no_vault_selected'))}</div>
                 </div>
-                <button class="btn btn-soft" data-action="clear-audit-key">Vault-only feed</button>
+                <button class="btn btn-soft" data-action="clear-audit-key">${escapeHTML(t('vault_only_feed'))}</button>
             </div>
         `,
         state.selectedVault ? renderMiniList(
@@ -1035,26 +1066,26 @@ function renderVaultAudit() {
             },
             (item) => `<span>${escapeHTML(item.name)}</span>`,
             () => ''
-        ) : '<div class="empty">Select a vault first.</div>'
+        ) : `<div class="empty">${escapeHTML(t('select_vault_first'))}</div>`
     );
 
     renderCenterPane(
-        'Vault Audit',
-        `<div class="toolbar"><span class="pill">${rows.length} events</span><span class="pill">${useKeyMode ? 'Key scope' : 'Vault scope'}</span></div>`,
+        t('vault_audit'),
+        `<div class="toolbar"><span class="pill">${rows.length} ${escapeHTML(t('count_events'))}</span><span class="pill">${escapeHTML(useKeyMode ? t('key_scope') : t('vault_scope'))}</span></div>`,
         renderTable([
-            { label: 'Time', render: (row) => escapeHTML(row.created_at || row.timestamp || '-') },
-            { label: 'Action', render: (row) => escapeHTML(row.action || row.event_type || '-') },
-            { label: 'Source', render: (row) => escapeHTML(row.actor_type || row.source_type || '-') },
-            { label: 'Object', render: (row) => escapeHTML(row.entity_id || row.object_id || '-') }
+            { label: t('time'), render: (row) => escapeHTML(row.created_at || row.timestamp || '-') },
+            { label: t('action'), render: (row) => escapeHTML(row.action || row.event_type || '-') },
+            { label: t('source'), render: (row) => escapeHTML(row.actor_type || row.source_type || '-') },
+            { label: t('object'), render: (row) => escapeHTML(row.entity_id || row.object_id || '-') }
         ], rows, () => '')
     );
 
-    renderRightPane('Event detail', rows.length ? `
+    renderRightPane(t('audit_event_detail'), rows.length ? `
         <div class="card">
-            <div class="card-title">Latest Event</div>
+            <div class="card-title">${escapeHTML(t('latest_event'))}</div>
             <pre class="code">${escapeHTML(formatJSON(rows[0]))}</pre>
         </div>
-    ` : '<div class="empty">No audit events for the current scope.</div>');
+    ` : `<div class="empty">${escapeHTML(t('no_audit_scope_events'))}</div>`);
 }
 
 function renderGrouped() {
@@ -1065,12 +1096,12 @@ function renderGrouped() {
     const visibleValue = selectedEntry && selectedEntry.kind === 'VE' ? state.configDetail?.value : state.keyDetail?.value;
 
     renderListPane(
-        '키 묶음',
+        t('grouped_keys'),
         `
             <div class="stack">
                 <div class="toolbar">
-                    <a href="${routePath('grouped', '키')}" class="btn ${activeTab() === '키' ? 'btn-primary' : 'btn-soft'}" data-action="jump-tab" data-page="grouped" data-tab="키">키</a>
-                    <a href="${routePath('grouped', '환경값')}" class="btn ${activeTab() === '환경값' ? 'btn-primary' : 'btn-soft'}" data-action="jump-tab" data-page="grouped" data-tab="환경값">환경값</a>
+                    <a href="${routePath('grouped', GROUPED_KEYS_TAB)}" class="btn ${activeTab() === GROUPED_KEYS_TAB ? 'btn-primary' : 'btn-soft'}" data-action="jump-tab" data-page="grouped" data-tab="${GROUPED_KEYS_TAB}">${escapeHTML(t('filter_keys'))}</a>
+                    <a href="${routePath('grouped', GROUPED_CONFIGS_TAB)}" class="btn ${activeTab() === GROUPED_CONFIGS_TAB ? 'btn-primary' : 'btn-soft'}" data-action="jump-tab" data-page="grouped" data-tab="${GROUPED_CONFIGS_TAB}">${escapeHTML(t('filter_configs'))}</a>
                 </div>
             </div>
         `,
@@ -1084,7 +1115,7 @@ function renderGrouped() {
             (item) => `
                 <div class="stack">
                     <span>${escapeHTML(item.name)}</span>
-                    <span class="muted">${escapeHTML(item.count)}개 항목</span>
+                    <span class="muted">${escapeHTML(item.count)} ${escapeHTML(t('count_items'))}</span>
                 </div>
             `,
             () => ''
@@ -1092,61 +1123,61 @@ function renderGrouped() {
     );
 
     renderCenterPane(
-        '묶음 항목',
-        `<div class="toolbar"><span class="pill">${entries.length}개</span></div>`,
+        t('grouped_items'),
+        `<div class="toolbar"><span class="pill">${entries.length} ${escapeHTML(t('count_rows'))}</span></div>`,
         renderTable([
-            { label: '이름', render: (row) => `<button data-action="select-grouped-entry" data-vault="${escapeHTML(row.vault_runtime_hash)}" data-kind="${escapeHTML(row.kind)}" data-key="${escapeHTML(row.name)}">${escapeHTML(row.name)}</button>` },
-            { label: '볼트', render: (row) => escapeHTML(row.vault_name || row.vault_id || '-') },
-            { label: '식별자', render: (row) => `<span class="code">${escapeHTML(row.vault_id || row.vault_runtime_hash)}</span>` },
-            { label: '경로', render: (row) => escapeHTML(row.path || '-') },
-            { label: 'IP', render: (row) => escapeHTML(row.ip || '-') }
+            { label: t('table_name_generic'), render: (row) => `<button data-action="select-grouped-entry" data-vault="${escapeHTML(row.vault_runtime_hash)}" data-kind="${escapeHTML(row.kind)}" data-key="${escapeHTML(row.name)}">${escapeHTML(row.name)}</button>` },
+            { label: t('page_vaults'), render: (row) => escapeHTML(row.vault_name || row.vault_id || '-') },
+            { label: t('table_identifier'), render: (row) => `<span class="code">${escapeHTML(row.vault_id || row.vault_runtime_hash)}</span>` },
+            { label: t('table_path'), render: (row) => escapeHTML(row.path || '-') },
+            { label: t('ip'), render: (row) => escapeHTML(row.ip || '-') }
         ], entries, (row) => selectedEntry && row.vault_runtime_hash === selectedEntry.vault_runtime_hash && row.kind === selectedEntry.kind && row.name === selectedEntry.name ? 'is-selected' : '')
     );
 
-    renderRightPane(activeTab() === '환경값' ? '환경값 상세' : '키 상세', selectedEntry ? `
+    renderRightPane(activeTab() === GROUPED_CONFIGS_TAB ? t('config_detail') : t('key_detail'), selectedEntry ? `
         <div class="stack">
             <div class="card">
-                <div class="card-title">선택 항목</div>
+                <div class="card-title">${escapeHTML(t('selected_item'))}</div>
                 ${renderKVGrid([
-                    ['이름', selectedEntry.name || '-'],
-                    ['볼트', selectedEntry.vault_name || '-'],
-                    ['식별자', selectedEntry.vault_id || selectedEntry.vault_runtime_hash || '-'],
-                    ['경로', selectedEntry.path || '-'],
-                    ['IP', selectedEntry.ip || '-']
+                    [t('name'), selectedEntry.name || '-'],
+                    [t('page_vaults'), selectedEntry.vault_name || '-'],
+                    [t('table_identifier'), selectedEntry.vault_id || selectedEntry.vault_runtime_hash || '-'],
+                    [t('table_path'), selectedEntry.path || '-'],
+                    [t('ip'), selectedEntry.ip || '-']
                 ])}
             </div>
             <div class="card">
-                <div class="card-title">값</div>
+                <div class="card-title">${escapeHTML(t('value'))}</div>
                 <div class="stack">
                     <div class="row" style="align-items:center;">
-                        <button class="btn btn-soft" type="button" data-action="toggle-reveal">${state.revealValue ? '가리기' : '보기'}</button>
-                        ${state.revealValue && visibleValue ? `<button class="btn btn-soft" type="button" data-action="copy-value">복사</button>` : ''}
+                        <button class="btn btn-soft" type="button" data-action="toggle-reveal">${escapeHTML(state.revealValue ? t('hide') : t('reveal'))}</button>
+                        ${state.revealValue && visibleValue ? `<button class="btn btn-soft" type="button" data-action="copy-value">${escapeHTML(t('copy'))}</button>` : ''}
                     </div>
                     <textarea class="textarea" readonly>${escapeHTML(state.revealValue ? (visibleValue || '') : '••••••••••••')}</textarea>
                 </div>
             </div>
         </div>
-    ` : '<div class="empty">왼쪽에서 묶음을 선택하세요.</div>');
+    ` : `<div class="empty">${escapeHTML(t('select_grouped_entry_prompt'))}</div>`);
 }
 
 function renderConfigs() {
     const tab = activeTab();
-    if (tab === '검색') return renderConfigSearch();
-    if (tab === '일괄 수정') return renderConfigBulk();
-    if (tab === '볼트별 설정') return renderConfigPerVault();
+    if (tab === CONFIG_SEARCH_TAB) return renderConfigSearch();
+    if (tab === CONFIG_BULK_TAB) return renderConfigBulk();
+    if (tab === CONFIG_PER_VAULT_TAB) return renderConfigPerVault();
     return renderConfigSummary();
 }
 
 function renderConfigSummary() {
     renderListPane(
-        'Summary filters',
+        t('summary_filters'),
         '',
         `
             <div class="card">
-                <div class="card-title">Current Summary</div>
+                <div class="card-title">${escapeHTML(t('current_summary'))}</div>
                 <div class="stack">
-                    <span class="value">Cross-agent summary only in first pass.</span>
-                    <span class="muted">Use Search or Per Vault for concrete config records.</span>
+                    <span class="value">${escapeHTML(t('config_summary_first_pass'))}</span>
+                    <span class="muted">${escapeHTML(t('config_summary_guidance'))}</span>
                 </div>
             </div>
         `
@@ -1154,25 +1185,25 @@ function renderConfigSummary() {
 
     const summary = state.configsSummary || { total_configs: 0, agents_with_configs: 0, total_agents: 0 };
     renderCenterPane(
-        'Config Summary',
+        t('config_summary'),
         '',
         `
             <div class="metrics">
-                <div class="metric"><span class="label">Total Configs</span><strong>${escapeHTML(summary.total_configs)}</strong></div>
-                <div class="metric"><span class="label">Agents With Configs</span><strong>${escapeHTML(summary.agents_with_configs)}</strong></div>
-                <div class="metric"><span class="label">Total Agents</span><strong>${escapeHTML(summary.total_agents)}</strong></div>
+                <div class="metric"><span class="label">${escapeHTML(t('total_configs'))}</span><strong>${escapeHTML(summary.total_configs)}</strong></div>
+                <div class="metric"><span class="label">${escapeHTML(t('agents_with_configs'))}</span><strong>${escapeHTML(summary.agents_with_configs)}</strong></div>
+                <div class="metric"><span class="label">${escapeHTML(t('total_agents'))}</span><strong>${escapeHTML(summary.total_agents)}</strong></div>
             </div>
-            <div class="empty">Detailed scope summary is not returned by the backend yet. Use Search or Per Vault for concrete records.</div>
+            <div class="empty">${escapeHTML(t('config_summary_backend_notice'))}</div>
         `
     );
 
-    renderRightPane('Config summary detail', `
+    renderRightPane(t('config_summary_detail'), `
         <div class="card">
-            <div class="card-title">Guidance</div>
+            <div class="card-title">${escapeHTML(t('guidance'))}</div>
             <div class="stack">
-                <div class="value">Use <strong>Search</strong> to inspect a single config key across vaults.</div>
-                <div class="value">Use <strong>Per Vault</strong> to edit one vault's configs.</div>
-                <div class="value">Use <strong>Bulk Update</strong> for cross-agent changes.</div>
+                <div class="value">${escapeHTML(t('guidance_search_single_config'))}</div>
+                <div class="value">${escapeHTML(t('guidance_per_vault'))}</div>
+                <div class="value">${escapeHTML(t('guidance_bulk_update'))}</div>
             </div>
         </div>
     `);
@@ -1314,7 +1345,7 @@ function renderConfigPerVault() {
         'Vault selector',
         `
             <div class="stack">
-                <input class="field" id="config-vault-search" type="search" placeholder="볼트 검색" value="${escapeHTML(state.globalQuery)}">
+                <input class="field" id="config-vault-search" type="search" placeholder="${escapeHTML(t('search_vaults'))}" value="${escapeHTML(state.globalQuery)}">
             </div>
         `,
         renderMiniList(
@@ -1372,7 +1403,7 @@ function allVaultRows() {
 }
 
 function currentVaultSelectedKind() {
-    if (activeTab() === 'Host Vault') {
+    if (activeTab() === 'HOST_VAULT') {
         return state.vaultItemKind === 'VE'
             ? 'VE'
             : state.vaultItemKind === 'VK'
@@ -1388,7 +1419,7 @@ function currentVaultSelectedKind() {
 
 function currentVaultSelectedName() {
     const kind = currentVaultSelectedKind();
-    if (activeTab() === 'Host Vault') {
+    if (activeTab() === 'HOST_VAULT') {
         return kind === 'VE' ? state.hostSelectedConfigKey : state.hostSelectedKey?.name;
     }
     return kind === 'VE' ? state.selectedConfigKey : state.selectedKey?.name;
@@ -1431,29 +1462,29 @@ function localVaultVisibleRows() {
 }
 
 function vaultVisibleRows() {
-    if (activeTab() === 'Host Vault') return hostVaultVisibleRows();
-    if (activeTab() === '키 / 환경값') return localVaultVisibleRows();
+    if (activeTab() === 'HOST_VAULT') return hostVaultVisibleRows();
+    if (activeTab() === 'VAULT_ITEMS') return localVaultVisibleRows();
     return [];
 }
 
 function vaultItemIdentifier(row) {
     if (row.item_kind === 'VE') return row.value || row.name || row.key || row.ref || '-';
     if (row.token) return row.token;
-    if (row.ref) return `VK:${row.scope || (activeTab() === 'Host Vault' ? 'TEMP' : 'LOCAL')}:${row.ref}`;
+    if (row.ref) return `VK:${row.scope || (activeTab() === 'HOST_VAULT' ? 'TEMP' : 'LOCAL')}:${row.ref}`;
     return row.name || '-';
 }
 
 function vaultCenterTitle() {
-    if (activeTab() === '전체 볼트') return t('vault_inventory');
-    if (activeTab() === 'Host Vault') return t('host_vault_title');
-    if (activeTab() === '일괄변경') return '일괄변경';
+    if (activeTab() === 'ALL_VAULTS') return t('vault_inventory');
+    if (activeTab() === 'HOST_VAULT') return t('host_vault_title');
+    if (activeTab() === 'BULK_APPLY') return t('tab_bulk_apply');
     return t('current_vault_items');
 }
 
 function vaultRightPaneTitle() {
-    if (activeTab() === '전체 볼트') return currentLocale() === 'en' ? 'Vault Detail' : '볼트 상세';
-    if (activeTab() === '일괄변경') {
-        return state.bulkApplyView === 'workflow' ? '워크플로우 상세' : '항목 상세';
+    if (activeTab() === 'ALL_VAULTS') return t('vault_detail');
+    if (activeTab() === 'BULK_APPLY') {
+        return state.bulkApplyView === 'workflow' ? t('view_workflows') : t('view_items');
     }
     return currentVaultSelectedKind() === 'VE' ? t('config_detail') : t('key_detail');
 }
@@ -1471,7 +1502,7 @@ function selectedInventoryDetail() {
 }
 
 function vaultPanel() {
-    const isHost = activeTab() === 'Host Vault';
+    const isHost = activeTab() === 'HOST_VAULT';
     const isConfigItem = currentVaultSelectedKind() === 'VE';
     const detail = isHost
         ? (isConfigItem ? state.hostConfigDetail : state.hostKeyDetail)
@@ -1494,12 +1525,12 @@ function vaultPanel() {
         currentScope: detail?.scope || (isConfigItem ? 'LOCAL' : (isHost ? 'TEMP' : 'TEMP')),
         scopeOptions: isConfigItem ? ['LOCAL', 'EXTERNAL', 'TEMP'] : ['TEMP', 'LOCAL', 'EXTERNAL'],
         moveHelperText: isConfigItem
-            ? (isHost ? 'Host Vault 환경값을 다른 볼트로 보냅니다. LOCAL / EXTERNAL 관계도 여기서 정리합니다.' : '선택한 환경값을 다른 볼트나 Host Vault로 보냅니다. LOCAL / EXTERNAL 관계도 여기서 정리합니다.')
-            : (isHost ? 'Host Vault 키를 다른 볼트로 보냅니다.' : '선택한 키를 다른 볼트나 Host Vault로 보냅니다.'),
+            ? (isHost ? t('host_config_move_help') : t('vault_config_move_help'))
+            : (isHost ? t('host_key_move_help') : t('vault_key_move_help')),
         saveForm: isHost
             ? (isConfigItem ? 'save-host-config' : 'save-host-key')
             : (isConfigItem ? 'save-agent-config' : 'save-key'),
-        createTitle: isConfigItem ? '새 환경값' : '새 키',
+        createTitle: isConfigItem ? t('new_config') : t('new_key'),
         showScopeSelect: isHost,
         showDelete: !isHost && Boolean(detailName),
         deleteAction: isConfigItem ? 'delete-agent-config' : 'delete-key',
@@ -1519,9 +1550,9 @@ function vaultPanel() {
 }
 
 function functionCenterTitle() {
-    if (activeTab() === '연결 관리') return t('bindings');
-    if (activeTab() === '영향도') return t('impact');
-    if (activeTab() === '실행') return t('function_run');
+    if (activeTab() === 'FUNCTION_BINDINGS') return t('bindings');
+    if (activeTab() === 'FUNCTION_IMPACT') return t('impact');
+    if (activeTab() === 'FUNCTION_RUN') return t('function_run');
     return t('function_list');
 }
 
@@ -1549,11 +1580,11 @@ function prettyJSON(value) {
 }
 
 function settingsCenterTitle() {
-    return activeTab() === '관리자' ? t('admin_settings') : t('ui_settings');
+    return activeTab() === 'ADMIN' ? t('admin_settings') : t('ui_settings');
 }
 
 function settingsRightPaneTitle() {
-    return activeTab() === '관리자' ? t('admin_setting_detail') : t('edit_ui_config');
+    return activeTab() === 'ADMIN' ? t('admin_setting_detail') : t('edit_ui_config');
 }
 
 function syncVaultVuePanels() {
@@ -1822,7 +1853,7 @@ async function loadHostVaultConfigDetail() {
 }
 
 async function loadVaultItemSyncStatus() {
-    if (!state.selectedVault || activeTab() !== '키 / 환경값') {
+    if (!state.selectedVault || activeTab() !== 'VAULT_ITEMS') {
         state.vaultItemSyncStatus = {};
         return;
     }
@@ -2029,7 +2060,7 @@ async function loadAdminAudit() {
 }
 
 async function loadGroupedRows() {
-    const kind = activeTab() === '환경값' ? 'VE' : 'VK';
+            const kind = activeTab() === 'VE' ? 'VE' : 'VK';
     const groupedMap = new Map();
     const tasks = state.vaults.map(async (vault) => {
         if (kind === 'VK') {
@@ -2117,7 +2148,7 @@ async function syncPageData() {
             if (!state.vaults.length) await loadVaults();
             if (state.selectedVault) {
                 await loadSelectedVaultDetail();
-                if (activeTab() === '일괄변경') {
+                if (activeTab() === 'BULK_APPLY') {
                     await Promise.all([loadBulkApplyTemplates(), loadBulkApplyWorkflows()]);
                 } else if (activeTab() !== 'Host Vault') {
                     await loadSelectedVaultKeys();
@@ -2125,7 +2156,7 @@ async function syncPageData() {
                     await loadConfigsForVault();
                     await loadVaultItemSyncStatus();
                 }
-                if (activeTab() === 'Host Vault') {
+                if (activeTab() === 'HOST_VAULT') {
                     await loadHostVaultKeys();
                     await loadHostVaultConfigs();
                     const useHostConfigDetail = state.vaultItemKind === 'VE'
@@ -2135,7 +2166,7 @@ async function syncPageData() {
                     } else {
                         await loadHostVaultKeyDetail();
                     }
-                } else if (activeTab() === '키 / 환경값') {
+                } else if (activeTab() === 'VAULT_ITEMS') {
                     const useConfigDetail = state.vaultItemKind === 'VE'
                         || (state.vaultItemKind === 'ALL' && state.selectedVaultItemKind === 'VE');
                     if (useConfigDetail) {
@@ -2159,9 +2190,9 @@ async function syncPageData() {
             await loadFunctions();
             if (state.selectedFunction) {
                 await loadSelectedFunctionDetail();
-                if (activeTab() === '연결 관리') {
+                if (activeTab() === 'FUNCTION_BINDINGS') {
                     await loadSelectedFunctionBindings();
-                } else if (activeTab() === '영향도') {
+                } else if (activeTab() === 'FUNCTION_IMPACT') {
                     await loadSelectedFunctionImpact();
                 }
             }
@@ -2192,10 +2223,10 @@ async function setPage(page) {
 
 async function setTab(tab) {
     state.activeTabByPage[state.activePage] = tab;
-    if (state.activePage === 'vaults' && tab === '일괄변경' && !state.bulkApplyView) {
+    if (state.activePage === 'vaults' && tab === 'BULK_APPLY' && !state.bulkApplyView) {
         state.bulkApplyView = 'items';
     }
-    if (!(state.activePage === 'vaults' && (tab === '키 / 환경값' || tab === '일괄변경'))) {
+    if (!(state.activePage === 'vaults' && (tab === 'VAULT_ITEMS' || tab === 'BULK_APPLY'))) {
         state.routeSelectedVaultHash = null;
     }
     syncRoute(false);
@@ -2206,7 +2237,7 @@ async function selectVaultByKey(key) {
     const vault = state.vaults.find((item) => item.vault_runtime_hash === key);
     if (!vault) return;
     state.selectedVault = vault;
-    state.activeTabByPage.vaults = '키 / 환경값';
+    state.activeTabByPage.vaults = 'VAULT_ITEMS';
     state.routeSelectedVaultHash = vault.vault_runtime_hash;
     state.selectedConfigVault = vault.vault_runtime_hash;
     state.auditVault = vault.vault_runtime_hash;
@@ -2224,7 +2255,7 @@ async function selectKeyByName(name) {
     state.auditKey = name;
     if (state.activePage === 'vaults') {
         await syncPageData();
-    } else if (state.activePage === 'audit' && activeTab() === '키') {
+    } else if (state.activePage === 'audit' && activeTab() === 'VE') {
         await syncPageData();
     } else {
         render();
@@ -2328,12 +2359,12 @@ async function handleFormSubmit(form) {
             return;
         }
         if (formType === 'promote-key') {
-            const isHostVault = activeTab() === 'Host Vault';
+            const isHostVault = activeTab() === 'HOST_VAULT';
             const targetVault = String(data.get('target_vault') || '').trim();
             const targetScope = String(data.get('target_scope') || 'TEMP').trim();
             const value = String(data.get('move_value') || '').trim() || (isHostVault ? (state.hostKeyDetail?.value || '') : (state.keyDetail?.value || ''));
             const name = String(data.get('name') || '').trim() || (isHostVault ? (state.hostSelectedKey?.name || state.hostKeyDetail?.name || '') : (state.selectedKey?.name || state.keyDetail?.name || ''));
-            if (!targetVault || !name || !value) throw new Error('격상할 키 값이 없습니다.');
+            if (!targetVault || !name || !value) throw new Error(t('promote_key_missing'));
             if (targetVault === 'host') {
                 await request('/api/host-vault/keys', {
                     method: 'POST',
@@ -2341,14 +2372,14 @@ async function handleFormSubmit(form) {
                 });
             } else {
                 if (targetScope !== 'TEMP') {
-                    throw new Error('로컬 볼트 VK 격상은 아직 TEMP만 지원합니다. Host Vault를 선택하면 LOCAL / EXTERNAL도 사용할 수 있습니다.');
+                    throw new Error(t('promote_key_scope_restricted'));
                 }
                 await request('/api/vaults/' + encodeURIComponent(targetVault) + '/keys', {
                     method: 'POST',
                     body: JSON.stringify({ name, value })
                 });
             }
-            setMessage('ok', '키를 선택한 볼트로 보냈습니다.');
+            setMessage('ok', t('key_sent'));
             await syncPageData();
             return;
         }
@@ -2391,12 +2422,12 @@ async function handleFormSubmit(form) {
             return;
         }
         if (formType === 'promote-config') {
-            const isHostVault = activeTab() === 'Host Vault';
+            const isHostVault = activeTab() === 'HOST_VAULT';
             const targetVault = String(data.get('target_vault') || '').trim();
             const targetScope = String(data.get('target_scope') || 'LOCAL').trim();
             const key = String(data.get('key') || '').trim() || (isHostVault ? (state.hostSelectedConfigKey || state.hostConfigDetail?.key || '') : (state.selectedConfigKey || state.configDetail?.key || ''));
             const value = String(data.get('move_value') || '').trim() || (isHostVault ? (state.hostConfigDetail?.value || '') : (state.configDetail?.value || ''));
-            if (!targetVault || !key || !value) throw new Error('격상할 환경값이 없습니다.');
+            if (!targetVault || !key || !value) throw new Error(t('promote_config_missing'));
             const payload = {
                 key,
                 value,
@@ -2414,7 +2445,7 @@ async function handleFormSubmit(form) {
                     body: JSON.stringify(payload)
                 });
             }
-            setMessage('ok', '환경값을 선택한 볼트로 보냈습니다.');
+            setMessage('ok', t('config_sent'));
             await syncPageData();
             return;
         }
@@ -2568,7 +2599,7 @@ async function handleAction(action, dataset) {
         if (action === 'set-vault-kind') {
             state.vaultItemKind = dataset.kind || 'VK';
             state.revealValue = false;
-            if (activeTab() === 'Host Vault') {
+            if (activeTab() === 'HOST_VAULT') {
                 if (state.vaultItemKind === 'VK') {
                     state.hostSelectedItemKind = 'VK';
                     state.hostSelectedConfigKey = null;
@@ -2648,7 +2679,7 @@ async function handleAction(action, dataset) {
                 : (state.configDetail && state.vaultItemKind === 'VE' ? (state.configDetail.value || '') : (state.keyDetail?.value || ''));
             if (value) {
                 await navigator.clipboard.writeText(value);
-                setMessage('ok', '값을 복사했습니다.');
+                setMessage('ok', t('value_copied'));
                 renderHeader();
             }
             return;

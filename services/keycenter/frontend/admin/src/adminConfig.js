@@ -1,20 +1,20 @@
 export const pageConfig = {
-    vaults: { label: '볼트', tabs: ['전체 볼트', 'Host Vault', '키 / 환경값'] },
-    functions: { label: '함수', tabs: ['함수 목록', '연결 관리', '영향도', '실행'] },
-    audit: { label: '감사', tabs: ['감사 로그'] },
-    settings: { label: '설정', tabs: ['UI', '관리자'] }
+    vaults: { labelKey: 'page_vaults', tabs: ['ALL_VAULTS', 'HOST_VAULT', 'VAULT_ITEMS', 'BULK_APPLY'] },
+    functions: { labelKey: 'page_functions', tabs: ['FUNCTION_LIST', 'FUNCTION_BINDINGS', 'FUNCTION_IMPACT', 'FUNCTION_RUN'] },
+    audit: { labelKey: 'page_audit', tabs: ['AUDIT_LOG'] },
+    settings: { labelKey: 'page_settings', tabs: ['UI', 'ADMIN'] }
 };
 
 export const routeEntries = [
-    { page: 'vaults', tab: '전체 볼트', path: '/vaults/all' },
-    { page: 'vaults', tab: 'Host Vault', path: '/vaults/host' },
-    { page: 'functions', tab: '함수 목록', path: '/functions/list' },
-    { page: 'functions', tab: '연결 관리', path: '/functions/bindings' },
-    { page: 'functions', tab: '영향도', path: '/functions/impact' },
-    { page: 'functions', tab: '실행', path: '/functions/run' },
-    { page: 'audit', tab: '감사 로그', path: '/audit' },
+    { page: 'vaults', tab: 'ALL_VAULTS', path: '/vaults/all' },
+    { page: 'vaults', tab: 'HOST_VAULT', path: '/vaults/host' },
+    { page: 'functions', tab: 'FUNCTION_LIST', path: '/functions/list' },
+    { page: 'functions', tab: 'FUNCTION_BINDINGS', path: '/functions/bindings' },
+    { page: 'functions', tab: 'FUNCTION_IMPACT', path: '/functions/impact' },
+    { page: 'functions', tab: 'FUNCTION_RUN', path: '/functions/run' },
+    { page: 'audit', tab: 'AUDIT_LOG', path: '/audit' },
     { page: 'settings', tab: 'UI', path: '/settings/ui' },
-    { page: 'settings', tab: '관리자', path: '/settings/admin' }
+    { page: 'settings', tab: 'ADMIN', path: '/settings/admin' }
 ];
 
 export const routeByPath = Object.fromEntries(routeEntries.map((entry) => [entry.path, entry]));

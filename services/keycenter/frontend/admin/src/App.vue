@@ -20,20 +20,20 @@
                     <div class="sidebar-label">{{ t('section_all') }}</div>
                     <div class="nav-list">
                         <a
-                            :href="routePath('vaults', '전체 볼트')"
+                            :href="routePath('vaults', 'ALL_VAULTS')"
                             class="nav-item"
-                            :class="{ active: activeTab() === '전체 볼트' }"
+                            :class="{ active: activeTab() === 'ALL_VAULTS' }"
                             data-action="set-tab"
-                            data-tab="전체 볼트"
+                            data-tab="ALL_VAULTS"
                         >
                             <span class="nav-item-main"><span>{{ t('all_vaults') }}</span></span>
                         </a>
                         <a
-                            :href="routePath('vaults', 'Host Vault')"
+                            :href="routePath('vaults', 'HOST_VAULT')"
                             class="nav-item"
-                            :class="{ active: activeTab() === 'Host Vault' }"
+                            :class="{ active: activeTab() === 'HOST_VAULT' }"
                             data-action="set-tab"
-                            data-tab="Host Vault"
+                            data-tab="HOST_VAULT"
                         >
                             <span class="nav-item-main"><span>{{ t('host_vault') }}</span></span>
                         </a>
@@ -89,7 +89,7 @@
                         <a
                             v-for="vault in filteredVaults()"
                             :key="vault.vault_runtime_hash"
-                            :href="routePath('audit', '감사 로그')"
+                            :href="routePath('audit', 'AUDIT_LOG')"
                             class="nav-item"
                             :class="{ active: state.auditVault === vault.vault_runtime_hash }"
                             data-action="audit-page-select-vault"
@@ -118,7 +118,7 @@
                             :data-tab="tabName"
                         >
                             <span class="nav-item-main">
-                                <span>{{ tabName }}</span>
+                                <span>{{ t('tab_' + tabName.toLowerCase()) }}</span>
                             </span>
                         </a>
                     </div>
@@ -135,59 +135,59 @@
                     <section class="pane" id="center-pane">
                         <div class="pane-header">
                             <div class="pane-title"><strong>{{ vaultCenterTitle() }}</strong></div>
-                            <template v-if="activeTab() === '전체 볼트'">
+                            <template v-if="activeTab() === 'ALL_VAULTS'">
                                 <div class="toolbar">
                                     <div class="toolbar-group">
-                                        <input class="field context-search" id="vault-search" type="search" placeholder="볼트 검색" :value="state.globalQuery">
+                                        <input class="field context-search" id="vault-search" type="search" :placeholder="t('search_vaults')" :value="state.globalQuery">
                                     </div>
-                                    <span class="pill">{{ allVaultRows().length }}개</span>
-                                    <button class="btn btn-soft" data-action="refresh-vaults">새로고침</button>
+                                    <span class="pill">{{ allVaultRows().length }} {{ t('count_rows') }}</span>
+                                    <button class="btn btn-soft" data-action="refresh-vaults">{{ t('refresh') }}</button>
                                 </div>
                             </template>
                             <template v-else>
                                 <div class="toolbar">
                                     <div class="toolbar-group">
-                                        <div v-if="activeTab() !== 'Host Vault'" class="toolbar-group">
-                                            <span class="segmented-label">작업</span>
-                                            <div class="segmented" role="tablist" aria-label="작업">
-                                                <button class="btn" :class="activeTab() === '키 / 환경값' ? 'btn-primary' : 'btn-soft'" data-action="set-tab" data-tab="키 / 환경값">키 / 환경값</button>
-                                                <button class="btn" :class="activeTab() === '일괄변경' ? 'btn-primary' : 'btn-soft'" data-action="set-tab" data-tab="일괄변경">일괄변경</button>
+                                        <div v-if="activeTab() !== 'HOST_VAULT'" class="toolbar-group">
+                                            <span class="segmented-label">{{ t('toolbar_work') }}</span>
+                                            <div class="segmented" role="tablist" :aria-label="t('toolbar_work')">
+                                                <button class="btn" :class="activeTab() === 'VAULT_ITEMS' ? 'btn-primary' : 'btn-soft'" data-action="set-tab" data-tab="VAULT_ITEMS">{{ t('tab_vault_items') }}</button>
+                                                <button class="btn" :class="activeTab() === 'BULK_APPLY' ? 'btn-primary' : 'btn-soft'" data-action="set-tab" data-tab="BULK_APPLY">{{ t('tab_bulk_apply') }}</button>
                                             </div>
                                         </div>
-                                        <template v-if="activeTab() === '일괄변경'">
+                                        <template v-if="activeTab() === 'BULK_APPLY'">
                                             <div class="toolbar-group">
-                                                <span class="segmented-label">보기</span>
-                                                <div class="segmented" role="tablist" aria-label="일괄변경 보기">
-                                                    <button class="btn" :class="state.bulkApplyView === 'items' ? 'btn-primary' : 'btn-soft'" data-action="set-bulk-apply-view" data-view="items">항목</button>
-                                                    <button class="btn" :class="state.bulkApplyView === 'workflow' ? 'btn-primary' : 'btn-soft'" data-action="set-bulk-apply-view" data-view="workflow">워크플로우</button>
+                                                <span class="segmented-label">{{ t('toolbar_view') }}</span>
+                                                <div class="segmented" role="tablist" :aria-label="t('toolbar_view')">
+                                                    <button class="btn" :class="state.bulkApplyView === 'items' ? 'btn-primary' : 'btn-soft'" data-action="set-bulk-apply-view" data-view="items">{{ t('view_items') }}</button>
+                                                    <button class="btn" :class="state.bulkApplyView === 'workflow' ? 'btn-primary' : 'btn-soft'" data-action="set-bulk-apply-view" data-view="workflow">{{ t('view_workflows') }}</button>
                                                 </div>
                                             </div>
                                         </template>
                                         <div class="toolbar-group">
-                                            <span class="segmented-label">표시 대상</span>
-                                            <div class="segmented" role="tablist" aria-label="표시 대상">
-                                                <button class="btn" :class="state.vaultItemKind === 'ALL' ? 'btn-primary' : 'btn-soft'" data-action="set-vault-kind" data-kind="ALL" :aria-pressed="state.vaultItemKind === 'ALL' ? 'true' : 'false'">전체</button>
-                                                <button class="btn" :class="state.vaultItemKind === 'VE' ? 'btn-primary' : 'btn-soft'" data-action="set-vault-kind" data-kind="VE" :aria-pressed="state.vaultItemKind === 'VE' ? 'true' : 'false'">환경값</button>
-                                                <button class="btn" :class="state.vaultItemKind === 'VK' ? 'btn-primary' : 'btn-soft'" data-action="set-vault-kind" data-kind="VK" :aria-pressed="state.vaultItemKind === 'VK' ? 'true' : 'false'">키</button>
+                                            <span class="segmented-label">{{ t('toolbar_scope') }}</span>
+                                            <div class="segmented" role="tablist" :aria-label="t('toolbar_scope')">
+                                                <button class="btn" :class="state.vaultItemKind === 'ALL' ? 'btn-primary' : 'btn-soft'" data-action="set-vault-kind" data-kind="ALL" :aria-pressed="state.vaultItemKind === 'ALL' ? 'true' : 'false'">{{ t('filter_all') }}</button>
+                                                <button class="btn" :class="state.vaultItemKind === 'VE' ? 'btn-primary' : 'btn-soft'" data-action="set-vault-kind" data-kind="VE" :aria-pressed="state.vaultItemKind === 'VE' ? 'true' : 'false'">{{ t('filter_configs') }}</button>
+                                                <button class="btn" :class="state.vaultItemKind === 'VK' ? 'btn-primary' : 'btn-soft'" data-action="set-vault-kind" data-kind="VK" :aria-pressed="state.vaultItemKind === 'VK' ? 'true' : 'false'">{{ t('filter_keys') }}</button>
                                             </div>
                                         </div>
-                                        <input class="field context-search" id="key-search" type="search" :placeholder="activeTab() === 'Host Vault' ? '호스트 볼트 안에서 검색' : '현재 볼트 안에서 검색'" :value="state.globalQuery">
+                                        <input class="field context-search" id="key-search" type="search" :placeholder="activeTab() === 'HOST_VAULT' ? t('search_host_vault') : t('search_current_vault')" :value="state.globalQuery">
                                     </div>
-                                    <span class="pill">{{ activeTab() === '일괄변경' ? (state.bulkApplyView === 'workflow' ? state.bulkApplyWorkflows.length : state.bulkApplyTemplates.length) : vaultVisibleRows().length }}개 항목</span>
-                                    <button v-if="activeTab() !== 'Host Vault' && activeTab() !== '일괄변경'" class="btn btn-primary" data-action="new-key">{{ state.vaultItemKind === 'VE' ? '새 환경값' : '새 키' }}</button>
+                                    <span class="pill">{{ activeTab() === 'BULK_APPLY' ? (state.bulkApplyView === 'workflow' ? state.bulkApplyWorkflows.length : state.bulkApplyTemplates.length) : vaultVisibleRows().length }} {{ t('count_items') }}</span>
+                                    <button v-if="activeTab() !== 'HOST_VAULT' && activeTab() !== 'BULK_APPLY'" class="btn btn-primary" data-action="new-key">{{ state.vaultItemKind === 'VE' ? t('new_config') : t('new_key') }}</button>
                                 </div>
                             </template>
                         </div>
                         <div class="pane-content">
-                            <div v-if="activeTab() === '전체 볼트'" class="table-wrap">
+                            <div v-if="activeTab() === 'ALL_VAULTS'" class="table-wrap">
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>볼트명</th>
-                                            <th>식별자</th>
-                                            <th>경로</th>
+                                            <th>{{ t('table_vault_name') }}</th>
+                                            <th>{{ t('table_identifier') }}</th>
+                                            <th>{{ t('table_path') }}</th>
                                             <th>IP</th>
-                                            <th>상태</th>
+                                            <th>{{ t('table_status') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -195,9 +195,9 @@
                                             v-for="row in allVaultRows()"
                                             :key="row.is_host ? 'host' : row.vault_runtime_hash"
                                             class="is-clickable"
-                                            :class="{ 'is-selected': (activeTab() === 'Host Vault' && row.is_host) || (activeTab() !== 'Host Vault' && !row.is_host && state.selectedVault && row.vault_runtime_hash === state.selectedVault.vault_runtime_hash) }"
+                                            :class="{ 'is-selected': (activeTab() === 'HOST_VAULT' && row.is_host) || (activeTab() !== 'HOST_VAULT' && !row.is_host && state.selectedVault && row.vault_runtime_hash === state.selectedVault.vault_runtime_hash) }"
                                             :data-action="row.is_host ? 'set-tab' : 'select-vault'"
-                                            :data-tab="row.is_host ? 'Host Vault' : null"
+                                            :data-tab="row.is_host ? 'HOST_VAULT' : null"
                                             :data-key="row.is_host ? null : row.vault_runtime_hash"
                                         >
                                             <td>{{ row.display_name || row.vault_name }}</td>
@@ -209,18 +209,18 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <div v-else-if="activeTab() !== '일괄변경'" class="table-wrap">
+                            <div v-else-if="activeTab() !== 'BULK_APPLY'" class="table-wrap">
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th>종류</th>
-                                            <th>키명</th>
-                                            <th>키값</th>
-                                            <th v-if="activeTab() === 'Host Vault'">범위</th>
+                                            <th>{{ t('table_kind') }}</th>
+                                            <th>{{ t('table_name') }}</th>
+                                            <th>{{ t('table_value') }}</th>
+                                            <th v-if="activeTab() === 'HOST_VAULT'">{{ t('table_scope') }}</th>
                                             <template v-else>
-                                                <th>동기화여부</th>
-                                                <th>키 분류</th>
-                                                <th>분포</th>
+                                                <th>{{ t('table_sync') }}</th>
+                                                <th>{{ t('table_key_class') }}</th>
+                                                <th>{{ t('table_distribution') }}</th>
                                             </template>
                                         </tr>
                                     </thead>
@@ -230,20 +230,20 @@
                                             :key="row.item_kind + ':' + row.name"
                                             class="is-clickable"
                                             :class="{ 'is-selected': row.name === currentVaultSelectedName() && row.item_kind === currentVaultSelectedKind() }"
-                                            :data-action="activeTab() === 'Host Vault' ? 'select-host-item' : 'select-vault-item'"
+                                            :data-action="activeTab() === 'HOST_VAULT' ? 'select-host-item' : 'select-vault-item'"
                                             :data-kind="row.item_kind"
                                             :data-key="row.name"
                                         >
                                             <td><span class="pill" :class="row.item_kind === 'VE' ? 'kind-ve' : 'kind-vk'">{{ vaultKindLabel(row.item_kind) }}</span></td>
                                             <td>{{ row.name }}</td>
                                             <td><span class="code">{{ vaultItemIdentifier(row) }}</span></td>
-                                            <td v-if="activeTab() === 'Host Vault'"><span class="status-pill" :class="scopeClass(row.scope || (row.item_kind === 'VE' ? 'LOCAL' : 'TEMP'))">{{ row.scope || (row.item_kind === 'VE' ? 'LOCAL' : 'TEMP') }}</span></td>
+                                            <td v-if="activeTab() === 'HOST_VAULT'"><span class="status-pill" :class="scopeClass(row.scope || (row.item_kind === 'VE' ? 'LOCAL' : 'TEMP'))">{{ row.scope || (row.item_kind === 'VE' ? 'LOCAL' : 'TEMP') }}</span></td>
                                             <template v-else>
                                                 <td>
                                                     <span
                                                         v-if="vaultSyncStatus(row.item_kind, row.name).loading"
                                                         class="muted"
-                                                    >확인중</span>
+                                                    >{{ t('sync_checking') }}</span>
                                                     <span
                                                         v-else
                                                         class="status-pill"
@@ -254,7 +254,7 @@
                                                     <span
                                                         v-if="vaultKeyClassStatus(row.item_kind, row.name).loading"
                                                         class="muted"
-                                                    >확인중</span>
+                                                    >{{ t('sync_checking') }}</span>
                                                     <span
                                                         v-else
                                                         class="status-pill"
@@ -265,7 +265,7 @@
                                                     <span
                                                         v-if="vaultDistributionStatus(row.item_kind, row.name).loading"
                                                         class="muted"
-                                                    >확인중</span>
+                                                    >{{ t('sync_checking') }}</span>
                                                     <span
                                                         v-else
                                                         class="status-pill"
@@ -275,7 +275,7 @@
                                             </template>
                                         </tr>
                                         <tr v-if="!vaultVisibleRows().length">
-                                            <td :colspan="activeTab() === 'Host Vault' ? 4 : 6"><div class="empty">표시할 행이 없습니다.</div></td>
+                                            <td :colspan="activeTab() === 'HOST_VAULT' ? 4 : 6"><div class="empty">{{ t('empty_no_rows') }}</div></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -284,10 +284,10 @@
                                 <table v-if="state.bulkApplyView === 'items'">
                                     <thead>
                                         <tr>
-                                            <th>이름</th>
-                                            <th>형식</th>
-                                            <th>대상 경로</th>
-                                            <th>정의 상태</th>
+                                            <th>{{ t('table_name_generic') }}</th>
+                                            <th>{{ t('table_type') }}</th>
+                                            <th>{{ t('table_target_path') }}</th>
+                                            <th>{{ t('table_definition_status') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -305,17 +305,17 @@
                                             <td><span class="status-pill" :class="statusClass(row.validation_status || 'active')">{{ row.validation_status || '-' }}</span></td>
                                         </tr>
                                         <tr v-if="!state.bulkApplyTemplates.length">
-                                            <td colspan="4"><div class="empty">등록된 일괄변경 항목이 없습니다.</div></td>
+                                            <td colspan="4"><div class="empty">{{ t('empty_no_bulk_items') }}</div></td>
                                         </tr>
                                     </tbody>
                                 </table>
                                 <table v-else>
                                     <thead>
                                         <tr>
-                                            <th>이름</th>
-                                            <th>라벨</th>
-                                            <th>단계 수</th>
-                                            <th>정의 상태</th>
+                                            <th>{{ t('table_name_generic') }}</th>
+                                            <th>{{ t('table_label') }}</th>
+                                            <th>{{ t('table_steps') }}</th>
+                                            <th>{{ t('table_definition_status') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -333,7 +333,7 @@
                                             <td><span class="status-pill" :class="statusClass(row.validation_status || 'active')">{{ row.validation_status || '-' }}</span></td>
                                         </tr>
                                         <tr v-if="!state.bulkApplyWorkflows.length">
-                                            <td colspan="4"><div class="empty">등록된 워크플로우가 없습니다.</div></td>
+                                            <td colspan="4"><div class="empty">{{ t('empty_no_workflows') }}</div></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -345,80 +345,80 @@
                             <div class="pane-title"><strong>{{ vaultRightPaneTitle() }}</strong></div>
                         </div>
                         <div class="pane-content">
-                            <template v-if="activeTab() === '전체 볼트'">
+                            <template v-if="activeTab() === 'ALL_VAULTS'">
                                 <div v-if="selectedInventoryDetail()" class="stack">
                                     <div class="card">
-                                        <div class="card-title">선택된 볼트</div>
+                                        <div class="card-title">{{ t('selected_vault') }}</div>
                                         <div class="inline-grid">
-                                            <div class="kv"><span class="label">이름</span><span class="value">{{ selectedInventoryDetail().display_name || selectedInventoryDetail().vault_name || '-' }}</span></div>
-                                            <div class="kv"><span class="label">식별자</span><span class="value">{{ selectedInventoryDetail().vault_id || selectedInventoryDetail().vault_runtime_hash || '-' }}</span></div>
-                                            <div class="kv"><span class="label">경로</span><span class="value">{{ ((selectedInventoryDetail().managed_paths && selectedInventoryDetail().managed_paths[0]) || '-') }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('name') }}</span><span class="value">{{ selectedInventoryDetail().display_name || selectedInventoryDetail().vault_name || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_identifier') }}</span><span class="value">{{ selectedInventoryDetail().vault_id || selectedInventoryDetail().vault_runtime_hash || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_path') }}</span><span class="value">{{ ((selectedInventoryDetail().managed_paths && selectedInventoryDetail().managed_paths[0]) || '-') }}</span></div>
                                             <div class="kv"><span class="label">IP</span><span class="value">{{ selectedInventoryDetail().ip || '-' }}</span></div>
-                                            <div class="kv"><span class="label">상태</span><span class="value">{{ selectedInventoryDetail().status || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_status') }}</span><span class="value">{{ selectedInventoryDetail().status || '-' }}</span></div>
                                         </div>
                                     </div>
                                     <form class="stack" data-form="save-vault-meta">
                                         <div class="card">
-                                            <div class="card-title">기본 정보</div>
+                                            <div class="card-title">{{ t('summary') }}</div>
                                             <div class="stack">
-                                                <div class="kv"><span class="label">볼트 이름</span><input class="field" name="display_name" :value="selectedInventoryDetail().display_name || ''"></div>
-                                                <div class="kv"><span class="label">설명</span><textarea class="textarea" name="description">{{ selectedInventoryDetail().description || '' }}</textarea></div>
-                                                <div class="kv"><span class="label">태그 JSON</span><textarea class="textarea" name="tags_json">{{ selectedInventoryDetail().tags_json || '[]' }}</textarea></div>
+                                                <div class="kv"><span class="label">{{ t('table_vault_name') }}</span><input class="field" name="display_name" :value="selectedInventoryDetail().display_name || ''"></div>
+                                                <div class="kv"><span class="label">{{ t('description') }}</span><textarea class="textarea" name="description">{{ selectedInventoryDetail().description || '' }}</textarea></div>
+                                                <div class="kv"><span class="label">{{ t('tags_json') }}</span><textarea class="textarea" name="tags_json">{{ selectedInventoryDetail().tags_json || '[]' }}</textarea></div>
                                             </div>
                                         </div>
                                         <div class="toolbar">
-                                            <button class="btn btn-primary" type="submit">저장</button>
+                                            <button class="btn btn-primary" type="submit">{{ t('save') }}</button>
                                         </div>
                                     </form>
                                 </div>
-                                <div v-else class="empty">왼쪽에서 볼트를 선택하세요.</div>
+                                <div v-else class="empty">{{ t('selected_vault_prompt') }}</div>
                             </template>
-                            <template v-else-if="activeTab() !== '일괄변경'">
+                            <template v-else-if="activeTab() !== 'BULK_APPLY'">
                                 <div class="stack">
                                     <form v-if="vaultPanel().canMoveItem" class="stack" :data-form="vaultPanel().isConfigItem ? 'promote-config' : 'promote-key'">
                                         <div class="card">
-                                            <div class="card-title">{{ vaultPanel().isConfigItem ? '환경값 이동' : '키 이동' }}</div>
+                                            <div class="card-title">{{ vaultPanel().isConfigItem ? t('move_config') : t('move_key') }}</div>
                                             <div class="stack">
                                                 <div class="kv">
-                                                    <span class="label">대상 볼트</span>
+                                                    <span class="label">{{ t('target_vault') }}</span>
                                                     <select class="select" name="target_vault">
                                                         <option v-for="option in vaultTargetOptions(true)" :key="option.value" :value="option.value" :selected="option.value === vaultPanel().targetVaultDefault">{{ option.label }}</option>
                                                     </select>
                                                 </div>
                                                 <div class="kv">
-                                                    <span class="label">대상 범위</span>
+                                                    <span class="label">{{ t('target_scope') }}</span>
                                                     <select class="select" name="target_scope">
                                                         <option v-for="option in vaultPanel().scopeOptions" :key="option" :value="option" :selected="option === vaultPanel().currentScope">{{ option }}</option>
                                                     </select>
                                                 </div>
                                                 <div class="kv">
-                                                    <span class="label">보낼 값</span>
-                                                    <textarea class="textarea" name="move_value" placeholder="이동할 값을 입력하거나 확인하세요">{{ vaultPanel().visibleValue || '' }}</textarea>
+                                                    <span class="label">{{ t('value_to_send') }}</span>
+                                                    <textarea class="textarea" name="move_value" :placeholder="t('move_value_placeholder')">{{ vaultPanel().visibleValue || '' }}</textarea>
                                                 </div>
                                             </div>
                                             <div class="muted">{{ vaultPanel().moveHelperText }}</div>
                                         </div>
-                                        <button class="btn btn-soft" type="submit" :disabled="!vaultPanel().visibleValue">{{ vaultPanel().isConfigItem ? '환경값 이동' : '키 이동' }}</button>
+                                        <button class="btn btn-soft" type="submit" :disabled="!vaultPanel().visibleValue">{{ vaultPanel().isConfigItem ? t('move_config') : t('move_key') }}</button>
                                     </form>
                                     <form class="stack" :data-form="vaultPanel().saveForm">
                                         <div class="card">
-                                            <div class="card-title">{{ vaultPanel().detailName ? '항목 상세' : vaultPanel().createTitle }}</div>
+                                            <div class="card-title">{{ vaultPanel().detailName ? t('selected_item') : vaultPanel().createTitle }}</div>
                                             <div class="stack">
                                                 <div class="kv">
-                                                    <span class="label">{{ vaultPanel().isConfigItem ? '환경값 이름' : '키 이름' }}</span>
+                                                    <span class="label">{{ vaultPanel().isConfigItem ? t('config_name') : t('key_name') }}</span>
                                                     <input class="field" :name="vaultPanel().isConfigItem ? 'key' : 'name'" :value="vaultPanel().detailName || ''" :readonly="vaultPanel().detailName ? true : null">
                                                 </div>
                                                 <div class="kv">
-                                                    <span class="label">{{ vaultPanel().isConfigItem ? '환경값' : '키 값' }}</span>
+                                                    <span class="label">{{ vaultPanel().isConfigItem ? t('config_value') : t('key_value') }}</span>
                                                     <div class="row" style="align-items:center;">
-                                                        <button class="btn btn-soft" type="button" data-action="toggle-reveal">{{ state.revealValue ? '가리기' : '보기' }}</button>
-                                                        <button v-if="state.revealValue && vaultPanel().visibleValue" class="btn btn-soft" type="button" data-action="copy-value">복사</button>
+                                                        <button class="btn btn-soft" type="button" data-action="toggle-reveal">{{ state.revealValue ? t('hide') : t('reveal') }}</button>
+                                                        <button v-if="state.revealValue && vaultPanel().visibleValue" class="btn btn-soft" type="button" data-action="copy-value">{{ t('copy') }}</button>
                                                     </div>
-                                                    <textarea class="textarea" name="value" :placeholder="vaultPanel().detailName ? '새 값을 입력하면 덮어씁니다' : '필수'">{{ state.revealValue ? (vaultPanel().visibleValue || '') : '••••••••••••' }}</textarea>
+                                                    <textarea class="textarea" name="value" :placeholder="vaultPanel().detailName ? t('overwrite_placeholder') : t('required')">{{ state.revealValue ? (vaultPanel().visibleValue || '') : '••••••••••••' }}</textarea>
                                                 </div>
                                                 <template v-if="vaultPanel().showScopeSelect">
                                                     <div class="kv">
-                                                        <span class="label">범위</span>
+                                                        <span class="label">{{ t('table_scope') }}</span>
                                                         <select class="select" name="scope">
                                                             <option v-for="option in vaultPanel().scopeOptions" :key="option" :value="option" :selected="option === vaultPanel().currentScope">{{ option }}</option>
                                                         </select>
@@ -429,20 +429,20 @@
                                                     <input v-if="vaultPanel().isConfigItem" type="hidden" name="status" :value="vaultPanel().configStatus">
                                                 </template>
                                                 <template v-if="vaultPanel().showKeyMeta">
-                                                    <div class="kv"><span class="label">설명</span><textarea class="textarea" name="description">{{ vaultPanel().description }}</textarea></div>
-                                                    <div class="kv"><span class="label">태그 JSON</span><textarea class="textarea" name="tags_json">{{ vaultPanel().tagsJSON }}</textarea></div>
+                                                    <div class="kv"><span class="label">{{ t('description') }}</span><textarea class="textarea" name="description">{{ vaultPanel().description }}</textarea></div>
+                                                    <div class="kv"><span class="label">{{ t('tags_json') }}</span><textarea class="textarea" name="tags_json">{{ vaultPanel().tagsJSON }}</textarea></div>
                                                 </template>
                                             </div>
                                         </div>
                                         <div class="toolbar">
-                                            <button class="btn btn-primary" type="submit">{{ vaultPanel().detailName ? '저장' : '생성' }}</button>
-                                            <button v-if="vaultPanel().showDelete" class="btn btn-danger" type="button" :data-action="vaultPanel().deleteAction">삭제</button>
+                                            <button class="btn btn-primary" type="submit">{{ vaultPanel().detailName ? t('save') : t('create') }}</button>
+                                            <button v-if="vaultPanel().showDelete" class="btn btn-danger" type="button" :data-action="vaultPanel().deleteAction">{{ t('delete') }}</button>
                                         </div>
                                     </form>
                                     <template v-if="vaultPanel().isConfigItem">
                                         <details class="card" open>
-                                            <summary class="card-title">LOCAL / EXTERNAL 관계</summary>
-                                            <div v-if="!configRelationsByScope().length" class="empty">같은 키의 LOCAL / EXTERNAL 관계가 아직 없습니다.</div>
+                                            <summary class="card-title">{{ t('local_external_relations') }}</summary>
+                                            <div v-if="!configRelationsByScope().length" class="empty">{{ t('no_relation_info') }}</div>
                                             <div v-else class="stack">
                                                 <div v-for="section in configRelationsByScope()" :key="section.scope" class="stack">
                                                     <div class="card-title">{{ section.scope }}</div>
@@ -455,29 +455,29 @@
                                     </template>
                                     <template v-else>
                                         <details v-if="vaultPanel().showKeyMeta" class="card">
-                                            <summary class="card-title">부가 정보</summary>
+                                            <summary class="card-title">{{ t('additional_info') }}</summary>
                                             <div class="inline-grid">
-                                                <div class="kv"><span class="label">연결 수</span><span class="value">{{ vaultPanel().bindingsTotal }}</span></div>
-                                                <div class="kv"><span class="label">사용 수</span><span class="value">{{ vaultPanel().usageCount }}</span></div>
-                                                <div class="kv"><span class="label">범위</span><span class="value">{{ vaultPanel().currentScope }}</span></div>
-                                                <div class="kv"><span class="label">상태</span><span class="value">{{ vaultPanel().status }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('bindings_count') }}</span><span class="value">{{ vaultPanel().bindingsTotal }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('usage_count') }}</span><span class="value">{{ vaultPanel().usageCount }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('table_scope') }}</span><span class="value">{{ vaultPanel().currentScope }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('table_status') }}</span><span class="value">{{ vaultPanel().status }}</span></div>
                                             </div>
                                             <div v-if="vaultPanel().bindings.length" class="stack" style="margin-top:12px;">
                                                 <div v-for="item in vaultPanel().bindings" :key="item.binding_type + ':' + item.target_name + ':' + item.field_key" class="value">{{ item.binding_type }} / {{ item.target_name }} / {{ item.field_key || '-' }}</div>
                                             </div>
-                                            <div v-else class="empty">연결 정보 없음</div>
+                                            <div v-else class="empty">{{ t('no_binding_info') }}</div>
                                             <div v-if="vaultPanel().recentAudit.length" class="stack" style="margin-top:12px;">
                                                 <div v-for="item in vaultPanel().recentAudit" :key="(item.action || item.event_type) + ':' + (item.created_at || item.timestamp)" class="value">{{ item.action || item.event_type || 'event' }} · {{ item.created_at || item.timestamp || '-' }}</div>
                                             </div>
-                                            <div v-else class="empty">감사 로그 없음</div>
+                                            <div v-else class="empty">{{ t('no_audit_info') }}</div>
                                         </details>
                                         <div v-else class="card">
-                                            <div class="card-title">부가 정보</div>
+                                            <div class="card-title">{{ t('additional_info') }}</div>
                                             <div class="inline-grid">
-                                                <div class="kv"><span class="label">식별자</span><span class="value">{{ vaultPanel().itemRefValue || '-' }}</span></div>
-                                                <div class="kv"><span class="label">범위</span><span class="value">{{ vaultPanel().currentScope }}</span></div>
-                                                <div class="kv"><span class="label">상태</span><span class="value">{{ vaultPanel().status }}</span></div>
-                                                <div class="kv"><span class="label">저장소</span><span class="value">Host Vault</span></div>
+                                                <div class="kv"><span class="label">{{ t('table_identifier') }}</span><span class="value">{{ vaultPanel().itemRefValue || '-' }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('table_scope') }}</span><span class="value">{{ vaultPanel().currentScope }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('table_status') }}</span><span class="value">{{ vaultPanel().status }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('storage') }}</span><span class="value">{{ t('host_vault_storage') }}</span></div>
                                             </div>
                                         </div>
                                     </template>
@@ -486,42 +486,42 @@
                             <template v-else>
                                 <div v-if="state.bulkApplyView === 'items' && selectedBulkApplyTemplate()" class="stack">
                                     <div class="card">
-                                        <div class="card-title">항목 상세</div>
+                                        <div class="card-title">{{ t('selected_item') }}</div>
                                         <div class="inline-grid">
-                                            <div class="kv"><span class="label">이름</span><span class="value">{{ selectedBulkApplyTemplate().name || '-' }}</span></div>
-                                            <div class="kv"><span class="label">형식</span><span class="value">{{ selectedBulkApplyTemplate().format || '-' }}</span></div>
-                                            <div class="kv"><span class="label">대상 경로</span><span class="value">{{ selectedBulkApplyTemplate().target_path || '-' }}</span></div>
-                                            <div class="kv"><span class="label">훅</span><span class="value">{{ selectedBulkApplyTemplate().hook || '-' }}</span></div>
-                                            <div class="kv"><span class="label">정의 상태</span><span class="value">{{ selectedBulkApplyTemplate().validation_status || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_name_generic') }}</span><span class="value">{{ selectedBulkApplyTemplate().name || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_type') }}</span><span class="value">{{ selectedBulkApplyTemplate().format || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_target_path') }}</span><span class="value">{{ selectedBulkApplyTemplate().target_path || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('hook') }}</span><span class="value">{{ selectedBulkApplyTemplate().hook || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_definition_status') }}</span><span class="value">{{ selectedBulkApplyTemplate().validation_status || '-' }}</span></div>
                                         </div>
                                     </div>
                                     <div class="card">
-                                        <div class="card-title">템플릿 본문</div>
+                                        <div class="card-title">{{ t('template_body') }}</div>
                                         <pre class="code">{{ selectedBulkApplyTemplate().body || '' }}</pre>
                                     </div>
                                 </div>
                                 <div v-else-if="state.bulkApplyView === 'workflow' && selectedBulkApplyWorkflow()" class="stack">
                                     <div class="card">
-                                        <div class="card-title">워크플로우 상세</div>
+                                        <div class="card-title">{{ t('workflow_detail') }}</div>
                                         <div class="inline-grid">
-                                            <div class="kv"><span class="label">이름</span><span class="value">{{ selectedBulkApplyWorkflow().name || '-' }}</span></div>
-                                            <div class="kv"><span class="label">라벨</span><span class="value">{{ selectedBulkApplyWorkflow().label || '-' }}</span></div>
-                                            <div class="kv"><span class="label">훅</span><span class="value">{{ selectedBulkApplyWorkflow().hook || '-' }}</span></div>
-                                            <div class="kv"><span class="label">단계 수</span><span class="value">{{ selectedBulkApplyWorkflow().step_count || ((selectedBulkApplyWorkflow().steps && selectedBulkApplyWorkflow().steps.length) || 0) }}</span></div>
-                                            <div class="kv"><span class="label">정의 상태</span><span class="value">{{ selectedBulkApplyWorkflow().validation_status || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_name_generic') }}</span><span class="value">{{ selectedBulkApplyWorkflow().name || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_label') }}</span><span class="value">{{ selectedBulkApplyWorkflow().label || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('hook') }}</span><span class="value">{{ selectedBulkApplyWorkflow().hook || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_steps') }}</span><span class="value">{{ selectedBulkApplyWorkflow().step_count || ((selectedBulkApplyWorkflow().steps && selectedBulkApplyWorkflow().steps.length) || 0) }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_definition_status') }}</span><span class="value">{{ selectedBulkApplyWorkflow().validation_status || '-' }}</span></div>
                                         </div>
                                     </div>
                                     <div class="card">
-                                        <div class="card-title">단계</div>
+                                        <div class="card-title">{{ t('steps') }}</div>
                                         <div v-if="selectedBulkApplyWorkflow().steps && selectedBulkApplyWorkflow().steps.length" class="stack">
                                             <div v-for="step in selectedBulkApplyWorkflow().steps" :key="step.name" class="value">
                                                 {{ step.name }} · {{ step.format || '-' }} · {{ step.target_path || '-' }}
                                             </div>
                                         </div>
-                                        <div v-else class="empty">정의된 단계가 없습니다.</div>
+                                        <div v-else class="empty">{{ t('no_steps_defined') }}</div>
                                     </div>
                                 </div>
-                                <div v-else class="empty">왼쪽에서 항목 또는 워크플로우를 선택하세요.</div>
+                                <div v-else class="empty">{{ t('select_bulk_target_prompt') }}</div>
                             </template>
                         </div>
                     </section>
@@ -533,23 +533,23 @@
                                 <div class="pane-title"><strong>{{ functionCenterTitle() }}</strong></div>
                                 <div class="toolbar">
                                     <div class="toolbar-group">
-                                        <input class="field context-search" id="function-search" type="search" placeholder="함수 검색" :value="state.globalQuery">
+                                        <input class="field context-search" id="function-search" type="search" :placeholder="t('section_functions')" :value="state.globalQuery">
                                     </div>
-                                    <span class="pill">{{ filteredFunctions().length }}개</span>
-                                    <button v-if="activeTab() === '함수 목록'" class="btn btn-soft" data-action="refresh-functions">새로고침</button>
-                                    <button v-if="activeTab() === '실행'" class="btn btn-sm" type="submit" form="function-run-form">실행</button>
+                                    <span class="pill">{{ filteredFunctions().length }} {{ t('count_rows') }}</span>
+                                    <button v-if="activeTab() === 'FUNCTION_LIST'" class="btn btn-soft" data-action="refresh-functions">{{ t('refresh') }}</button>
+                                    <button v-if="activeTab() === 'FUNCTION_RUN'" class="btn btn-sm" type="submit" form="function-run-form">{{ t('tab_function_run') }}</button>
                                 </div>
                             </div>
                             <div class="pane-content">
-                                <template v-if="activeTab() === '함수 목록'">
+                                <template v-if="activeTab() === 'FUNCTION_LIST'">
                                     <div class="table-wrap">
                                         <table>
                                             <thead>
                                                 <tr>
-                                                    <th>함수</th>
-                                                    <th>분류</th>
-                                                    <th>해시</th>
-                                                    <th>수정</th>
+                                                    <th>{{ t('function_list') }}</th>
+                                                    <th>{{ t('category') }}</th>
+                                                    <th>{{ t('hash') }}</th>
+                                                    <th>Updated</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -567,21 +567,21 @@
                                                     <td>{{ fn.updated_at || '-' }}</td>
                                                 </tr>
                                                 <tr v-if="!filteredFunctions().length">
-                                                    <td colspan="4"><div class="empty">등록된 글로벌 함수가 없습니다. 먼저 함수를 추가해야 합니다.</div></td>
+                                                    <td colspan="4"><div class="empty">{{ t('no_functions') }}</div></td>
                                                 </tr>
                                             </tbody>
                                         </table>
                                     </div>
                                 </template>
-                                <template v-else-if="activeTab() === '연결 관리'">
+                                <template v-else-if="activeTab() === 'FUNCTION_BINDINGS'">
                                     <div class="table-wrap">
                                         <table>
                                             <thead>
                                                 <tr>
-                                                    <th>Ref</th>
-                                                    <th>볼트</th>
-                                                    <th>필드</th>
-                                                    <th>필수</th>
+                                                    <th>{{ t('ref') }}</th>
+                                                    <th>{{ t('page_vaults') }}</th>
+                                                    <th>{{ t('field') }}</th>
+                                                    <th>{{ t('required') }}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -592,26 +592,26 @@
                                                     <td>{{ String(row.required) }}</td>
                                                 </tr>
                                                 <tr v-if="!state.functionBindings.length">
-                                                    <td colspan="4"><div class="empty">선택한 함수의 연결이 없습니다.</div></td>
+                                                    <td colspan="4"><div class="empty">{{ t('empty_no_rows') }}</div></td>
                                                 </tr>
                                             </tbody>
                                         </table>
                                     </div>
                                 </template>
-                                <template v-else-if="activeTab() === '영향도'">
+                                <template v-else-if="activeTab() === 'FUNCTION_IMPACT'">
                                     <div v-if="state.functionSummary" class="metrics">
-                                        <div class="metric"><span class="label">Bindings</span><strong>{{ state.functionSummary.bindings_total || 0 }}</strong></div>
-                                        <div class="metric"><span class="label">Unique Refs</span><strong>{{ state.functionSummary.unique_refs_count || 0 }}</strong></div>
-                                        <div class="metric"><span class="label">Vaults</span><strong>{{ state.functionSummary.vaults_count || 0 }}</strong></div>
+                                        <div class="metric"><span class="label">{{ t('bindings') }}</span><strong>{{ state.functionSummary.bindings_total || 0 }}</strong></div>
+                                        <div class="metric"><span class="label">{{ t('unique_refs') }}</span><strong>{{ state.functionSummary.unique_refs_count || 0 }}</strong></div>
+                                        <div class="metric"><span class="label">{{ t('vaults_metric') }}</span><strong>{{ state.functionSummary.vaults_count || 0 }}</strong></div>
                                     </div>
                                     <div class="table-wrap">
                                         <table>
                                             <thead>
                                                 <tr>
-                                                    <th>Ref</th>
-                                                    <th>Secret</th>
-                                                    <th>Field</th>
-                                                    <th>Vault</th>
+                                                    <th>{{ t('ref') }}</th>
+                                                    <th>{{ t('secret') }}</th>
+                                                    <th>{{ t('field') }}</th>
+                                                    <th>{{ t('page_vaults') }}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -622,7 +622,7 @@
                                                     <td>{{ row.vault_hash || '-' }}</td>
                                                 </tr>
                                                 <tr v-if="!functionImpactRefs().length">
-                                                    <td colspan="4"><div class="empty">선택한 함수의 영향도 데이터가 없습니다.</div></td>
+                                                    <td colspan="4"><div class="empty">{{ t('empty_no_rows') }}</div></td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -632,9 +632,9 @@
                                     <div v-if="state.selectedFunction" class="stack">
                                         <form class="stack" id="function-run-form" data-form="run-function">
                                             <div class="form-section">
-                                                <h4>함수 실행</h4>
+                                                <h4>{{ t('function_run') }}</h4>
                                                 <div class="form-row">
-                                                    <label>파라미터 (JSON)</label>
+                                                    <label>{{ t('parameters_json') }}</label>
                                                     <textarea name="prompt" rows="4" placeholder="{&quot;key&quot;: &quot;value&quot;}"></textarea>
                                                 </div>
                                                 <input type="hidden" name="system_prompt" value="">
@@ -644,11 +644,11 @@
                                             </div>
                                         </form>
                                         <div v-if="state.functionRunResult" class="card">
-                                            <div class="card-title">결과</div>
+                                            <div class="card-title">{{ t('summary') }}</div>
                                             <pre class="code">{{ prettyJSON(state.functionRunResult) }}</pre>
                                         </div>
                                     </div>
-                                    <div v-else class="empty">등록된 함수가 없어서 실행할 대상을 선택할 수 없습니다.</div>
+                                    <div v-else class="empty">{{ t('no_functions') }}</div>
                                 </template>
                             </div>
                         </section>
@@ -657,61 +657,61 @@
                                 <div class="pane-title"><strong>{{ functionRightPaneTitle() }}</strong></div>
                             </div>
                             <div class="pane-content">
-                                <template v-if="activeTab() === '함수 목록'">
+                                <template v-if="activeTab() === 'FUNCTION_LIST'">
                                     <div v-if="state.functionDetail" class="stack">
                                         <div class="card">
-                                            <div class="card-title">선택된 함수</div>
+                                            <div class="card-title">{{ t('selected_function') }}</div>
                                             <div class="inline-grid">
-                                                <div class="kv"><span class="label">함수</span><span class="value">{{ state.functionDetail.name || '-' }}</span></div>
-                                                <div class="kv"><span class="label">분류</span><span class="value">{{ state.functionDetail.category || '-' }}</span></div>
-                                                <div class="kv"><span class="label">해시</span><span class="value">{{ state.functionDetail.function_hash || '-' }}</span></div>
-                                                <div class="kv"><span class="label">수정</span><span class="value">{{ state.functionDetail.updated_at || '-' }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('function_list') }}</span><span class="value">{{ state.functionDetail.name || '-' }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('category') }}</span><span class="value">{{ state.functionDetail.category || '-' }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('hash') }}</span><span class="value">{{ state.functionDetail.function_hash || '-' }}</span></div>
+                                                <div class="kv"><span class="label">{{ t('updated') }}</span><span class="value">{{ state.functionDetail.updated_at || '-' }}</span></div>
                                             </div>
                                         </div>
                                         <div class="card">
-                                            <div class="card-title">명령</div>
+                                            <div class="card-title">{{ t('command') }}</div>
                                             <pre class="code">{{ state.functionDetail.command || '' }}</pre>
                                         </div>
                                     </div>
-                                    <div v-else class="empty">등록된 함수가 없어서 요약을 표시할 수 없습니다.</div>
+                                    <div v-else class="empty">{{ t('no_function_summary') }}</div>
                                 </template>
-                                <template v-else-if="activeTab() === '연결 관리'">
+                                <template v-else-if="activeTab() === 'FUNCTION_BINDINGS'">
                                     <div v-if="state.selectedFunction" class="stack">
                                         <form class="stack" data-form="replace-function-bindings">
                                             <div class="card">
-                                                <div class="card-title">Bindings JSON</div>
+                                                <div class="card-title">{{ t('bindings_json') }}</div>
                                                 <textarea class="textarea" name="bindings_json">{{ prettyJSON(functionBindingsPayload()) }}</textarea>
                                             </div>
                                             <div class="toolbar">
-                                                <button class="btn btn-primary" type="submit">교체</button>
-                                                <button class="btn btn-danger" type="button" data-action="delete-function-bindings">전체 삭제</button>
+                                                <button class="btn btn-primary" type="submit">{{ t('replace') }}</button>
+                                                <button class="btn btn-danger" type="button" data-action="delete-function-bindings">{{ t('delete_all') }}</button>
                                             </div>
                                         </form>
                                     </div>
-                                    <div v-else class="empty">등록된 함수가 없어서 연결 정보를 표시할 수 없습니다.</div>
+                                    <div v-else class="empty">{{ t('no_function_bindings_info') }}</div>
                                 </template>
-                                <template v-else-if="activeTab() === '영향도'">
+                                <template v-else-if="activeTab() === 'FUNCTION_IMPACT'">
                                     <div v-if="state.functionSummary" class="card">
-                                        <div class="card-title">요약</div>
+                                        <div class="card-title">{{ t('summary') }}</div>
                                         <div class="inline-grid">
-                                            <div class="kv"><span class="label">Binding Type</span><span class="value">{{ state.functionSummary.binding_type || '-' }}</span></div>
-                                            <div class="kv"><span class="label">Target</span><span class="value">{{ state.functionSummary.target_name || '-' }}</span></div>
-                                            <div class="kv"><span class="label">Bindings</span><span class="value">{{ state.functionSummary.bindings_total || 0 }}</span></div>
-                                            <div class="kv"><span class="label">Unique Refs</span><span class="value">{{ state.functionSummary.unique_refs_count || 0 }}</span></div>
-                                            <div class="kv"><span class="label">Vaults</span><span class="value">{{ state.functionSummary.vaults_count || 0 }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('binding_type') }}</span><span class="value">{{ state.functionSummary.binding_type || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('target_name') }}</span><span class="value">{{ state.functionSummary.target_name || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('bindings') }}</span><span class="value">{{ state.functionSummary.bindings_total || 0 }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('unique_refs') }}</span><span class="value">{{ state.functionSummary.unique_refs_count || 0 }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('vaults_metric') }}</span><span class="value">{{ state.functionSummary.vaults_count || 0 }}</span></div>
                                         </div>
                                     </div>
-                                    <div v-else class="empty">등록된 함수가 없어서 영향도 요약을 표시할 수 없습니다.</div>
+                                    <div v-else class="empty">{{ t('no_functions') }}</div>
                                 </template>
                                 <template v-else>
                                     <div v-if="state.selectedFunction" class="card">
-                                        <div class="card-title">요약</div>
+                                        <div class="card-title">{{ t('summary') }}</div>
                                         <div class="inline-grid">
-                                            <div class="kv"><span class="label">함수</span><span class="value">{{ state.selectedFunction.name || '-' }}</span></div>
-                                            <div class="kv"><span class="label">상태</span><span class="value">{{ state.selectedFunction.status || 'active' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('function_list') }}</span><span class="value">{{ state.selectedFunction.name || '-' }}</span></div>
+                                            <div class="kv"><span class="label">{{ t('table_status') }}</span><span class="value">{{ state.selectedFunction.status || 'active' }}</span></div>
                                         </div>
                                     </div>
-                                    <div v-else class="empty">등록된 함수가 없어서 요약을 표시할 수 없습니다.</div>
+                                    <div v-else class="empty">{{ t('no_functions') }}</div>
                                 </template>
                             </div>
                         </section>
@@ -720,9 +720,9 @@
                         <template v-if="state.activePage === 'audit'">
                             <section class="pane" id="center-pane">
                                 <div class="pane-header">
-                                    <div class="pane-title"><strong>감사 로그</strong></div>
+                                    <div class="pane-title"><strong>{{ t('tab_audit_log') }}</strong></div>
                                     <div class="toolbar">
-                                        <span class="pill">{{ state.auditRows.length }}건</span>
+                                        <span class="pill">{{ state.auditRows.length }} {{ t('count_events') }}</span>
                                     </div>
                                 </div>
                                 <div class="pane-content">
@@ -730,10 +730,10 @@
                                         <table>
                                             <thead>
                                                 <tr>
-                                                    <th>시간</th>
-                                                    <th>액션</th>
-                                                    <th>행위자</th>
-                                                    <th>대상</th>
+                                                    <th>{{ t('time') }}</th>
+                                                    <th>{{ t('action') }}</th>
+                                                    <th>{{ t('actor') }}</th>
+                                                    <th>{{ t('target') }}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -744,7 +744,7 @@
                                                     <td>{{ row.entity_id || '-' }}</td>
                                                 </tr>
                                                 <tr v-if="!state.auditRows.length">
-                                                    <td colspan="4"><div class="empty">표시할 행이 없습니다.</div></td>
+                                                    <td colspan="4"><div class="empty">{{ t('empty_no_rows') }}</div></td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -753,14 +753,14 @@
                             </section>
                             <section class="pane" id="right-pane">
                                 <div class="pane-header">
-                                    <div class="pane-title"><strong>이벤트 상세</strong></div>
+                                    <div class="pane-title"><strong>{{ t('audit_event_detail') }}</strong></div>
                                 </div>
                                 <div class="pane-content">
                                     <div v-if="state.auditRows.length" class="card">
-                                        <div class="card-title">Latest Event</div>
+                                        <div class="card-title">{{ t('latest_event') }}</div>
                                         <pre class="code">{{ prettyJSON(state.auditRows[0]) }}</pre>
                                     </div>
-                                    <div v-else class="empty">볼트를 선택하면 상세가 표시됩니다.</div>
+                                    <div v-else class="empty">{{ t('select_vault_for_detail') }}</div>
                                 </div>
                             </section>
                         </template>
@@ -774,12 +774,12 @@
                                         <template v-if="!state.uiConfig">
                                             <div class="empty">{{ t('loading_ui_config') }}</div>
                                         </template>
-                                        <template v-else-if="activeTab() === '관리자'">
+                                        <template v-else-if="activeTab() === 'ADMIN'">
                                             <div class="card">
                                                 <div class="card-title">{{ t('system_update') }}</div>
                                                 <div class="stack">
-                                                    <div class="value">Current deployed version and update target are managed here.</div>
-                                                    <div class="value">Update execution only runs when the server has a configured update script.</div>
+                                                    <div class="value">{{ t('settings_admin_intro_line1') }}</div>
+                                                    <div class="value">{{ t('settings_admin_intro_line2') }}</div>
                                                 </div>
                                             </div>
                                             <div class="card" v-if="state.systemUpdate">
@@ -813,7 +813,7 @@
                                         <template v-if="!state.uiConfig">
                                             <div class="empty">{{ t('loading') }}</div>
                                         </template>
-                                        <template v-else-if="activeTab() === '관리자'">
+                                        <template v-else-if="activeTab() === 'ADMIN'">
                                             <div class="card">
                                                 <div class="card-title">{{ t('update_control') }}</div>
                                                 <div class="inline-grid">
@@ -887,6 +887,7 @@ const {
   routePath,
   activeTab,
   filteredVaults,
+  filteredFunctions,
   statusClass,
   allVaultRows,
   vaultCenterTitle,

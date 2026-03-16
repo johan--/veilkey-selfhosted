@@ -101,11 +101,11 @@ for (const action of templateActions) {
   }
 }
 
-if (template.includes('일괄변경')) {
+if (template.includes('data-tab="BULK_APPLY"') || template.includes('activeTab() === \'BULK_APPLY\'')) {
   if (!/bulkApplyView/.test(useAdminApp) || !/bulkApplyTemplates/.test(useAdminApp) || !/bulkApplyWorkflows/.test(useAdminApp)) {
     fail('useAdminApp contract check failed: bulk-apply UI exists but bulk apply state is not fully initialized.');
   }
-  if (!/tab === '일괄변경'/.test(useAdminApp) || !/bulk-apply/.test(useAdminApp)) {
+  if (!/tab === 'BULK_APPLY'/.test(useAdminApp) || !/bulk-apply/.test(useAdminApp)) {
     fail('useAdminApp contract check failed: bulk-apply tab exists but route/query handling is missing.');
   }
 }
@@ -122,7 +122,7 @@ const routeSet = new Set(routeEntries.map((entry) => `${entry.page}::${entry.tab
 
 for (const [page, config] of Object.entries(pageConfig)) {
   for (const tab of config.tabs || []) {
-    if (page === 'vaults' && tab === '키 / 환경값') {
+    if (page === 'vaults' && ['VAULT_ITEMS', 'BULK_APPLY'].includes(tab)) {
       continue;
     }
     if (!routeSet.has(`${page}::${tab}`)) {
