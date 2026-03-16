@@ -35,6 +35,31 @@ func embeddedUIIndex() ([]byte, bool) {
 	return body, true
 }
 
+func devUIStaticFile(name string) ([]byte, bool) {
+	devDir := uiDevDir()
+	if devDir == "" {
+		return nil, false
+	}
+	path := filepath.Join(devDir, filepath.Clean(name))
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+	return body, true
+}
+
+func embeddedUIStaticFile(name string) ([]byte, bool) {
+	clean := strings.TrimPrefix(filepath.Clean(name), "/")
+	if clean == "" || strings.HasPrefix(clean, "assets/") {
+		return nil, false
+	}
+	body, err := fs.ReadFile(adminUIDist, filepath.Join("ui_dist", clean))
+	if err != nil {
+		return nil, false
+	}
+	return body, true
+}
+
 func devUIAssetsDir() string {
 	devDir := uiDevDir()
 	if devDir == "" {

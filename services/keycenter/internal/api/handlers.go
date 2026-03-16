@@ -1,6 +1,9 @@
 package api
 
-import "net/http"
+import (
+	"net/http"
+	"strings"
+)
 
 // handleStatus returns current key version info
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +51,7 @@ func (s *Server) SetupAPIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/configs/bulk", s.requireTrustedIP(s.requireUnlocked(s.handleSaveConfigsBulk)))
 	mux.HandleFunc("DELETE /api/configs/{key}", s.requireTrustedIP(s.requireUnlocked(s.handleDeleteConfig)))
 	mux.Handle("/assets/", s.assetHandler())
+	mux.HandleFunc("GET /favicon.svg", s.handleAdminStaticFile)
 	mux.HandleFunc("GET /api/ui/config", s.requireUnlocked(s.handleGetUIConfig))
 	mux.HandleFunc("PATCH /api/ui/config", s.requireUnlocked(s.handlePatchUIConfig))
 	mux.HandleFunc("GET /api/system/update", s.requireUnlocked(s.handleGetSystemUpdate))
@@ -106,4 +110,23 @@ func (s *Server) handleLegacyVaultRoute(w http.ResponseWriter, r *http.Request) 
 		target += "?" + raw
 	}
 	http.Redirect(w, r, target, http.StatusMovedPermanently)
+}
+
+func (s *Server) handleAdminStaticFile(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/")
+	if body, ok := devUIStaticFile(name); ok {
+		if strings.HasSuffix(name, ".svg") {
+			w.Header().Set("Content-Type", "image/svg+xml")
+		}
+		_, _ = w.Write(body)
+		return
+	}
+	if body, ok := embeddedUIStaticFile(name); ok {
+		if strings.HasSuffix(name, ".svg") {
+			w.Header().Set("Content-Type", "image/svg+xml")
+		}
+		_, _ = w.Write(body)
+		return
+	}
+	http.NotFound(w, r)
 }
