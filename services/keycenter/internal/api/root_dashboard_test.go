@@ -184,8 +184,8 @@ func TestAdminHTMLOneShotPreviewServesHTML(t *testing.T) {
 	if !strings.Contains(body, "VeilKey KeyCenter") {
 		t.Fatalf("expected preview title, got %q", body)
 	}
-	if !strings.Contains(body, "키 목록") || !strings.Contains(body, "감사 로그") {
-		t.Fatalf("expected html-only preview sections in HTML")
+	if !strings.Contains(body, "Operations Console (Variation 9)") || !strings.Contains(body, "<div id=\"app\"></div>") || !strings.Contains(body, "/assets/") {
+		t.Fatalf("expected built admin shell in preview HTML")
 	}
 }
 
@@ -194,11 +194,10 @@ func TestAdminMockupPreviewRoutesServeHTML(t *testing.T) {
 
 	tests := []struct {
 		path   string
-		marker string
 	}{
-		{path: "/preview/mockups/dark", marker: "Admin Console"},
-		{path: "/preview/mockups/amber", marker: "OPS/V1.2"},
-		{path: "/preview/mockups/mono", marker: "관리 콘솔"},
+		{path: "/preview/mockups/dark"},
+		{path: "/preview/mockups/amber"},
+		{path: "/preview/mockups/mono"},
 	}
 
 	for _, tt := range tests {
@@ -210,8 +209,8 @@ func TestAdminMockupPreviewRoutesServeHTML(t *testing.T) {
 			t.Fatalf("%s: expected 200, got %d", tt.path, w.Code)
 		}
 		body := w.Body.String()
-		if !strings.Contains(body, "VeilKey KeyCenter") || !strings.Contains(body, tt.marker) {
-			t.Fatalf("%s: expected preview HTML marker %q", tt.path, tt.marker)
+		if !strings.Contains(body, "VeilKey KeyCenter") || !strings.Contains(body, "Operations Console (Variation 9)") || !strings.Contains(body, "<div id=\"app\"></div>") {
+			t.Fatalf("%s: expected built admin shell", tt.path)
 		}
 	}
 }
