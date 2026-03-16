@@ -14,8 +14,6 @@ require_cmd() {
   }
 }
 
-require_cmd pct "deploy-lxc.sh must run on a Proxmox host"
-
 lxc_exec() {
   local vmid="$1"
   shift
