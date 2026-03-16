@@ -44,6 +44,8 @@ The active install targets are:
 
 - `INSTALL.md`
   - operator install flow
+- `docs/deployment-readiness.md`
+  - deploy-time guardrails and preflight expectations
 - `profiles/`
   - install target inputs
 - `scripts/`
