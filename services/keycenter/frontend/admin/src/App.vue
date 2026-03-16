@@ -75,12 +75,29 @@
             </template>
             <template v-else-if="state.activePage === 'audit'">
                 <div class="sidebar-section">
+                    <div class="sidebar-label">{{ t('section_audit_overview') || 'Audit Overview' }}</div>
+                    <div class="nav-list">
+                        <div class="sidebar-stat-row">
+                            <span class="muted">{{ t('total_events') || 'Total events' }}</span>
+                            <span class="status-pill count-pill">{{ auditTotalCount() }}</span>
+                        </div>
+                        <div class="sidebar-stat-row">
+                            <span class="muted">{{ t('tracked_refs') || 'Tracked refs' }}</span>
+                            <span class="status-pill count-pill">{{ state.trackedRefAudit && state.trackedRefAudit.counts ? state.trackedRefAudit.counts.total_refs : 0 }}</span>
+                        </div>
+                        <div v-if="state.trackedRefAudit && state.trackedRefAudit.counts && state.trackedRefAudit.counts.stale > 0" class="sidebar-stat-row">
+                            <span class="muted">{{ t('stale_refs') || 'Stale refs' }}</span>
+                            <span class="status-pill" :class="'error'">{{ state.trackedRefAudit.counts.stale }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-section">
                     <div class="sidebar-label">{{ t('section_audit_vaults') }}</div>
                     <div class="nav-list">
                         <a
                             v-for="vault in filteredVaults()"
                             :key="vault.vault_runtime_hash"
-                            :href="routePath('audit', 'AUDIT_LOG')"
+                            :href="'/audit/' + encodeURIComponent(vault.vault_runtime_hash)"
                             class="nav-item"
                             :class="{ active: state.auditVault === vault.vault_runtime_hash }"
                             data-action="audit-page-select-vault"
@@ -88,6 +105,7 @@
                         >
                             <span class="nav-item-main">
                                 <span>{{ vault.display_name || vault.vault_name || vault.vault_runtime_hash }}</span>
+                                <span class="muted" style="font-size:11px">{{ vault.ip || '' }} · {{ vault.agent_role || 'agent' }}</span>
                             </span>
                             <span class="status-pill count-pill">{{ auditVaultCount(vault) }}</span>
                         </a>
@@ -901,6 +919,7 @@ const {
   renderConfigRelations,
   configRelationsByScope,
   auditVaultCount,
+  auditTotalCount,
   encodeURIComponent
 } = useAdminApp();
 </script>

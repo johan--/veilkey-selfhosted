@@ -1803,6 +1803,10 @@ function auditVaultCount(vault) {
     return state.auditCountByVault[vault.vault_runtime_hash] || 0;
 }
 
+function auditTotalCount() {
+    return Object.values(state.auditCountByVault).reduce((sum, n) => sum + n, 0);
+}
+
 async function loadAuditVaultFeed() {
     if (!state.auditVault) {
         state.auditRows = [];
@@ -2549,6 +2553,7 @@ return {
                 renderConfigRelations,
                 configRelationsByScope,
                 auditVaultCount,
+                auditTotalCount,
                 encodeURIComponent
     };
 }

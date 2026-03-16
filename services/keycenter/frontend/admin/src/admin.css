@@ -161,6 +161,14 @@
             font-weight: 700;
         }
 
+        .sidebar-stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
         .nav-list,
         .mini-list {
             display: flex;
