@@ -2619,6 +2619,7 @@ return {
                 routePath,
                 activeTab,
                 filteredVaults,
+                filteredFunctions,
                 statusClass,
                 allVaultRows,
                 vaultCenterTitle,
