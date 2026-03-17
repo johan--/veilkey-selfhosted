@@ -1,6 +1,6 @@
 # VeilKey Self-Hosted
 
-`veilkey-selfhosted` is the self-hosted VeilKey product tree.
+`veilkey-selfhosted` is the self-hosted VeilKey product tree for secret lifecycle control, node-local runtime enforcement, and operator-managed infrastructure.
 
 It packages the runtime services, installer, and operator CLI needed to run VeilKey on your own infrastructure instead of relying on a hosted control plane.
 
@@ -136,6 +136,19 @@ Then choose one of the validated install paths:
 ./scripts/proxmox-host-localvault/health.sh /
 ```
 
+The minimum success check should look like this:
+
+```bash
+curl http://127.0.0.1:10181/health
+curl http://127.0.0.1:10180/health
+```
+
+Expected result:
+
+- KeyCenter health responds
+- LocalVault health responds
+- the node can heartbeat and appear in the central view after registration
+
 The full operator guide lives in [`installer/INSTALL.md`](./installer/INSTALL.md).
 
 ## Main Use Cases
@@ -179,6 +192,27 @@ The practical difference is:
 - local runtime components such as LocalVault instead of a cloud-only model
 - tighter install-to-runtime contract inside one source tree
 - central KeyCenter + multiple LocalVault runtime topology instead of a single hosted vault model
+
+### What It Is Not
+
+- not a hosted SaaS secret manager
+- not a generic password vault for personal use
+- not a single-binary local secret toy
+- not a cloud-only control plane detached from node runtime
+
+### Tradeoffs
+
+- higher operational complexity than a hosted secret service
+- stronger dependency on your own host, LXC, and network setup
+- installer and runtime verification matter more because the value is in the full self-hosted path
+
+### Rough Comparison
+
+| Tool shape | Main model | VeilKey difference |
+|---|---|---|
+| hosted secret SaaS | central hosted control plane | VeilKey keeps runtime and state under your infrastructure |
+| generic password manager | store/retrieve secrets | VeilKey focuses on node registration, runtime identity, and policy-driven execution |
+| file-encryption workflow | encrypt files in repos | VeilKey adds KeyCenter + LocalVault runtime topology and heartbeat/rebind flows |
 
 ## Contributing
 
