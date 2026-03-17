@@ -66,5 +66,7 @@ linters:
         - singleCaseSwitch
 
 issues:
+
+run:
   exclude-dirs:
     - vendor

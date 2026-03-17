@@ -11,5 +11,7 @@ linters:
     - gofmt
 
 issues:
+
+run:
   exclude-dirs:
     - vendor
