@@ -4,6 +4,8 @@
 
 It packages the runtime services, installer, and operator CLI needed to run VeilKey on your own infrastructure instead of relying on a hosted control plane.
 
+Korean summary: [`README.ko.md`](./README.ko.md)
+
 ## What VeilKey Is
 
 VeilKey is a self-hosted secret and execution-boundary system for local AI and operator workflows.
@@ -20,6 +22,81 @@ The active runtime model is:
   - outbound enforcement layer
 - `installer`
   - installation and verification layer
+
+## Core Logic
+
+The shortest mental model is:
+
+1. `KeyCenter` owns central policy and catalog decisions.
+2. multiple `LocalVault` nodes run close to workloads, often inside separate hosts or containers.
+3. operators use the CLI and install flows to register, inspect, and update those nodes.
+4. runtime changes are pushed outward by policy, heartbeat, tracked-ref sync, and bulk-apply flows.
+
+In practice, the shape looks like this:
+
+```text
+operator / cli
+      |
+      v
+  KeyCenter
+      |
+      +---- LocalVault (container A)
+      +---- LocalVault (container B)
+      +---- LocalVault (host node)
+```
+
+The important split is:
+
+- `KeyCenter`
+  - central control plane
+  - global catalog and policy decisions
+  - central view of nodes, bindings, audit, and bulk operations
+- `LocalVault`
+  - node-local runtime
+  - ciphertext and config storage
+  - heartbeat and runtime identity
+  - local execution under KeyCenter policy
+
+## Central Management Model
+
+VeilKey is designed so that keys and runtime state can be managed centrally while execution still happens at the node edge.
+
+That includes:
+
+- central registration of LocalVault nodes into KeyCenter
+- central visibility into vault identity and runtime binding
+- bulk-apply and workflow-style changes pushed from KeyCenter toward multiple LocalVault nodes
+- planned rotation and rebind flows instead of ad-hoc per-node drift
+
+This is the reason the repository contains both central and node-local components in one self-hosted tree.
+
+## Key Version And Rotation Model
+
+The key-management story is not just “store a secret once”.
+
+The important runtime concepts are:
+
+- `key_version`
+  - the current cryptographic/runtime version tracked by the node
+- `vault_hash`
+  - stable vault identifier
+- `vault_runtime_hash`
+  - current KeyCenter runtime binding hash
+- `managed_paths`
+  - reported runtime ownership context, not the identity itself
+
+Operationally, the flow is:
+
+1. a LocalVault node registers and heartbeats to KeyCenter
+2. KeyCenter can require rotation or rebind
+3. LocalVault applies the new `key_version`
+4. LocalVault retries heartbeat and reports the updated runtime binding
+
+So the model is:
+
+- central control over version and policy
+- local execution and state ownership at each LocalVault node
+- explicit rebind and rotation instead of silent key drift
 
 ## Why Self-Hosted
 
@@ -101,6 +178,7 @@ The practical difference is:
 - explicit Proxmox and LXC install paths
 - local runtime components such as LocalVault instead of a cloud-only model
 - tighter install-to-runtime contract inside one source tree
+- central KeyCenter + multiple LocalVault runtime topology instead of a single hosted vault model
 
 ## Contributing
 
