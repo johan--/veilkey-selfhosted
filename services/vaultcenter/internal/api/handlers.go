@@ -20,11 +20,6 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	resp["supported_features"] = localSupportedFeatures()
 	resp["locked"] = s.IsLocked()
-	install := s.currentInstallAccessState()
-	resp["install"] = install
-	resp["install_complete"] = install.Complete
-	resp["install_session_exists"] = install.Exists
-	resp["install_last_stage"] = install.LastStage
 	s.respondJSON(w, http.StatusOK, resp)
 }
 

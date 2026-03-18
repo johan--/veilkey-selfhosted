@@ -202,39 +202,6 @@ type GlobalFunction struct {
 
 func (GlobalFunction) TableName() string { return "global_functions" }
 
-type InstallSession struct {
-	SessionID           string    `gorm:"primaryKey;column:session_id" json:"session_id"`
-	Version             int       `gorm:"column:version;not null;default:1" json:"version"`
-	Language            string    `gorm:"column:language;not null;default:ko" json:"language"`
-	Quickstart          bool      `gorm:"column:quickstart;not null;default:true" json:"quickstart"`
-	Flow                string    `gorm:"column:flow;not null;default:quickstart" json:"flow"`
-	DeploymentMode      string    `gorm:"column:deployment_mode;not null;default:host-service" json:"deployment_mode"`
-	InstallScope        string    `gorm:"column:install_scope;not null;default:host-only" json:"install_scope"`
-	BootstrapMode       string    `gorm:"column:bootstrap_mode;not null;default:email" json:"bootstrap_mode"`
-	MailTransport       string    `gorm:"column:mail_transport;not null;default:none" json:"mail_transport"`
-	PlannedStagesJSON   string    `gorm:"column:planned_stages_json;type:text;not null;default:'[]'" json:"planned_stages_json"`
-	CompletedStagesJSON string    `gorm:"column:completed_stages_json;type:text;not null;default:'[]'" json:"completed_stages_json"`
-	LastStage           string    `gorm:"column:last_stage;not null;default:''" json:"last_stage"`
-	CreatedAt           time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt           time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
-}
-
-func (InstallSession) TableName() string { return "install_sessions" }
-
-type InstallCustodyChallenge struct {
-	Token      string     `gorm:"primaryKey;column:token" json:"token"`
-	SessionID  string     `gorm:"column:session_id;not null;index" json:"session_id"`
-	Email      string     `gorm:"column:email;not null" json:"email"`
-	SecretName string     `gorm:"column:secret_name;not null" json:"secret_name"`
-	Status     string     `gorm:"column:status;not null;default:pending;index" json:"status"`
-	Ciphertext []byte     `gorm:"column:ciphertext" json:"ciphertext"`
-	Nonce      []byte     `gorm:"column:nonce" json:"nonce"`
-	CreatedAt  time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
-	UpdatedAt  time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
-	UsedAt     *time.Time `gorm:"column:used_at" json:"used_at"`
-}
-
-func (InstallCustodyChallenge) TableName() string { return "install_custody_challenges" }
 
 type SecretInputChallenge struct {
 	Token      string     `gorm:"primaryKey;column:token" json:"token"`
@@ -333,24 +300,6 @@ type UIConfig struct {
 
 func (UIConfig) TableName() string { return "ui_configs" }
 
-type InstallRun struct {
-	RunID          string     `gorm:"primaryKey;column:run_id" json:"run_id"`
-	RunKind        string     `gorm:"column:run_kind;not null;index" json:"run_kind"`
-	Status         string     `gorm:"column:status;not null;index" json:"status"`
-	InstallProfile string     `gorm:"column:install_profile;not null;default:''" json:"install_profile"`
-	InstallRoot    string     `gorm:"column:install_root;not null;default:''" json:"install_root"`
-	ScriptPath     string     `gorm:"column:script_path;not null;default:''" json:"script_path"`
-	Workdir        string     `gorm:"column:workdir;not null;default:''" json:"workdir"`
-	CommandJSON    string     `gorm:"column:command_json;type:text;not null;default:'[]'" json:"command_json"`
-	ValidationJSON string     `gorm:"column:validation_json;type:text;not null;default:'{}'" json:"validation_json"`
-	OutputTail     string     `gorm:"column:output_tail;type:text;not null;default:''" json:"output_tail"`
-	LastError      string     `gorm:"column:last_error;type:text;not null;default:''" json:"last_error"`
-	StartedAt      time.Time  `gorm:"column:started_at;not null;index" json:"started_at"`
-	FinishedAt     *time.Time `gorm:"column:finished_at" json:"finished_at"`
-	CreatedAt      time.Time  `gorm:"column:created_at;autoCreateTime;index" json:"created_at"`
-}
-
-func (InstallRun) TableName() string { return "install_runs" }
 
 type Config struct {
 	Key       string    `gorm:"primaryKey;column:key" json:"key"`
