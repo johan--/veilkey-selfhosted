@@ -81,6 +81,7 @@ const state = reactive({
     adminAuditRows: [],
     keycenterTempRefs: [],
     selectedTempRef: null,
+    revealedTempRef: false,
     busy: {},
     ui: {
         sidebarHTML: '',
@@ -1531,9 +1532,26 @@ function renderKeycenterPage() {
 
     const refs = state.keycenterTempRefs;
     const selected = state.selectedTempRef;
-    const fmt = (iso) => {
+    const revealed = state.revealedTempRef;
+
+    const fmtAbs = (iso) => {
         if (!iso) return '-';
         try { return new Date(iso).toLocaleString(); } catch { return iso; }
+    };
+    const fmtRemaining = (iso) => {
+        if (!iso) return null;
+        const ms = new Date(iso) - Date.now();
+        if (ms <= 0) return t('keycenter_expired');
+        const mins = Math.round(ms / 60000);
+        if (mins < 60) return `${mins}${t('keycenter_min_left')}`;
+        const hrs = Math.floor(mins / 60);
+        const rem = mins % 60;
+        return rem > 0 ? `${hrs}${t('keycenter_hr')} ${rem}${t('keycenter_min_left')}` : `${hrs}${t('keycenter_hr_left')}`;
+    };
+    const maskRef = (ref) => {
+        const parts = ref.split(':');
+        if (parts.length === 3) return `${parts[0]}:${parts[1]}:${'•'.repeat(parts[2].length)}`;
+        return '•'.repeat(ref.length);
     };
 
     // Center: list
@@ -1551,17 +1569,48 @@ function renderKeycenterPage() {
                         <th>${escapeHTML(t('keycenter_expires_at'))}</th>
                     </tr></thead>
                     <tbody>
-                        ${refs.length ? refs.map((ref, i) => `
+                        ${refs.length ? refs.map((ref, i) => {
+                            const remaining = fmtRemaining(ref.expires_at);
+                            return `
                             <tr class="is-clickable${selected && selected.ref_canonical === ref.ref_canonical ? ' is-selected' : ''}"
                                 data-action="select-temp-ref" data-index="${i}">
                                 <td><strong>${escapeHTML(ref.secret_name || '-')}</strong></td>
-                                <td><code style="font-size:0.8rem">${escapeHTML(ref.ref_canonical)}</code></td>
-                                <td style="color:${ref.expires_at ? '#e0a040' : '#8a8fa8'}">${escapeHTML(fmt(ref.expires_at))}</td>
-                            </tr>
-                        `).join('') : `<tr><td colspan="3"><div class="empty">${escapeHTML(t('keycenter_no_temp_refs'))}</div></td></tr>`}
+                                <td><code style="font-size:0.8rem">${escapeHTML(maskRef(ref.ref_canonical))}</code></td>
+                                <td>
+                                    ${remaining ? `<span style="color:#e0a040;font-weight:500">${escapeHTML(remaining)}</span>` : '-'}
+                                </td>
+                            </tr>`;
+                        }).join('') : `<tr><td colspan="3"><div class="empty">${escapeHTML(t('keycenter_no_temp_refs'))}</div></td></tr>`}
                     </tbody>
                 </table>
             </div>
+
+            ${state.vaults.length ? `
+            <div style="margin-top:20px">
+                <div class="pane-title" style="margin-bottom:8px"><strong>${escapeHTML(t('page_vaults'))}</strong></div>
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr>
+                            <th>${escapeHTML(t('name'))}</th>
+                            <th>status</th>
+                            <th></th>
+                        </tr></thead>
+                        <tbody>
+                            ${state.vaults.map(v => `
+                                <tr>
+                                    <td>${escapeHTML(v.display_name || v.vault_name || v.vault_runtime_hash)}</td>
+                                    <td>${renderStatusPill(v.status || 'active', statusClass(v.status || 'active'))}</td>
+                                    <td><button class="action-btn" style="font-size:0.8rem;padding:3px 10px"
+                                        data-action="navigate-to-vault"
+                                        data-key="${escapeHTML(v.vault_runtime_hash)}">
+                                        ${escapeHTML(t('keycenter_goto_vault'))} →
+                                    </button></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>` : ''}
         </div>`;
 
     // Right: detail
@@ -1569,6 +1618,8 @@ function renderKeycenterPage() {
         const linkedVault = selected.agent_hash
             ? state.vaults.find(v => v.vault_runtime_hash === selected.agent_hash)
             : null;
+        const remaining = fmtRemaining(selected.expires_at);
+        const displayRef = revealed ? selected.ref_canonical : maskRef(selected.ref_canonical);
 
         state.ui.rightHTML = `
             <div class="pane-header">
@@ -1576,14 +1627,24 @@ function renderKeycenterPage() {
             </div>
             <div class="pane-content">
                 <div class="card">
-                    <div class="card-title">${escapeHTML(t('keycenter_ref'))}</div>
+                    <div class="card-title">Ref</div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+                        <code style="font-size:0.82rem;word-break:break-all;flex:1;color:#a8d0ff">${escapeHTML(displayRef)}</code>
+                        <button class="action-btn" data-action="toggle-reveal-temp-ref" style="white-space:nowrap">
+                            ${revealed ? t('hide') : t('reveal')}
+                        </button>
+                    </div>
                     <div class="inline-grid">
-                        <div class="kv"><span class="label">ref</span><span class="value"><code style="font-size:0.82rem;word-break:break-all">${escapeHTML(selected.ref_canonical)}</code></span></div>
                         <div class="kv"><span class="label">${escapeHTML(t('keycenter_secret_name'))}</span><span class="value">${escapeHTML(selected.secret_name || '-')}</span></div>
                         <div class="kv"><span class="label">status</span><span class="value">${escapeHTML(selected.status || '-')}</span></div>
-                        <div class="kv"><span class="label">${escapeHTML(t('keycenter_expires_at'))}</span><span class="value" style="color:#e0a040">${escapeHTML(fmt(selected.expires_at))}</span></div>
-                        <div class="kv"><span class="label">${escapeHTML(t('keycenter_created_at'))}</span><span class="value">${escapeHTML(fmt(selected.created_at))}</span></div>
-                        ${selected.agent_hash ? `<div class="kv"><span class="label">agent_hash</span><span class="value"><code style="font-size:0.8rem">${escapeHTML(selected.agent_hash)}</code></span></div>` : ''}
+                        <div class="kv">
+                            <span class="label">${escapeHTML(t('keycenter_expires_at'))}</span>
+                            <span class="value">
+                                <span style="color:#e0a040">${remaining ? escapeHTML(remaining) : '-'}</span>
+                                <span style="color:#8a8fa8;font-size:0.8rem;margin-left:6px">${escapeHTML(fmtAbs(selected.expires_at))}</span>
+                            </span>
+                        </div>
+                        <div class="kv"><span class="label">${escapeHTML(t('keycenter_created_at'))}</span><span class="value">${escapeHTML(fmtAbs(selected.created_at))}</span></div>
                     </div>
                     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
                         <button class="action-btn" data-action="copy-temp-ref" data-ref="${escapeHTML(selected.ref_canonical)}">${escapeHTML(t('copy'))} Ref</button>
@@ -1593,7 +1654,11 @@ function renderKeycenterPage() {
                                 data-key="${escapeHTML(linkedVault.vault_runtime_hash)}">
                                 ${escapeHTML(t('keycenter_goto_vault'))} →
                             </button>
-                        ` : ''}
+                        ` : `
+                            <button class="action-btn" data-action="set-page" data-page="vaults">
+                                ${escapeHTML(t('keycenter_goto_vault_list'))} →
+                            </button>
+                        `}
                     </div>
                 </div>
             </div>`;
@@ -2642,6 +2707,12 @@ async function handleAction(action, dataset) {
         if (action === 'select-temp-ref') {
             const idx = parseInt(dataset.index, 10);
             state.selectedTempRef = state.keycenterTempRefs[idx] || null;
+            state.revealedTempRef = false;
+            render();
+            return;
+        }
+        if (action === 'toggle-reveal-temp-ref') {
+            state.revealedTempRef = !state.revealedTempRef;
             render();
             return;
         }
