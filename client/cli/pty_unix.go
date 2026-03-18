@@ -17,28 +17,75 @@ import (
 	"golang.org/x/term"
 )
 
+var shellBuiltins = map[string]struct{}{
+	".": {}, ":": {}, "[": {}, "alias": {}, "bg": {}, "bind": {}, "break": {}, "builtin": {},
+	"cd": {}, "command": {}, "compgen": {}, "complete": {}, "continue": {}, "declare": {},
+	"dirs": {}, "disown": {}, "echo": {}, "enable": {}, "eval": {}, "exec": {}, "exit": {},
+	"export": {}, "false": {}, "fc": {}, "fg": {}, "getopts": {}, "hash": {}, "help": {},
+	"history": {}, "jobs": {}, "kill": {}, "let": {}, "local": {}, "logout": {}, "mapfile": {},
+	"popd": {}, "printf": {}, "pushd": {}, "pwd": {}, "read": {}, "readonly": {}, "return": {},
+	"set": {}, "shift": {}, "shopt": {}, "source": {}, "suspend": {}, "test": {}, "times": {},
+	"trap": {}, "true": {}, "type": {}, "typeset": {}, "ulimit": {}, "umask": {}, "unalias": {},
+	"unset": {}, "wait": {},
+}
+
+func looksLikeTerminalControlSequence(raw string) bool {
+	if raw == "" {
+		return false
+	}
+	if raw[0] == 0x1b {
+		return true
+	}
+	return strings.Contains(raw, "\x1b[") ||
+		strings.Contains(raw, "\x1b]") ||
+		strings.Contains(raw, "\x1bP") ||
+		strings.Contains(raw, "\x9b") ||
+		strings.Contains(raw, "\x90")
+}
+
+func shouldIssuePastedChunk(detector *SecretDetector, raw string) bool {
+	if strings.Contains(raw, "VK:") || strings.Contains(raw, "VE:") {
+		return false
+	}
+	if looksLikeTerminalControlSequence(raw) {
+		return false
+	}
+	core := strings.TrimSpace(strings.TrimRight(raw, "\r\n"))
+	if core == "" {
+		return false
+	}
+	fields := strings.Fields(core)
+	if len(fields) == 0 {
+		return false
+	}
+	if _, ok := shellBuiltins[fields[0]]; ok {
+		return false
+	}
+	if _, err := exec.LookPath(fields[0]); err == nil {
+		return false
+	}
+	return detector.ProcessLine(raw) == raw
+}
+
 func transformPastedInput(detector *SecretDetector, data []byte) string {
 	raw := string(data)
 	action := os.Getenv("VEILKEY_PLAINTEXT_ACTION")
-	if action == "" {
-		return detector.ProcessLine(raw)
+	processed := detector.ProcessLine(raw)
+	if action == "" || !strings.HasPrefix(action, "issue-temp") || !pasteTempIssuanceEnabled() {
+		return processed
 	}
-	if strings.Contains(raw, "VK:") || strings.Contains(raw, "VE:") {
-		return detector.ProcessLine(raw)
+	if processed != raw {
+		return processed
 	}
-	if !strings.HasPrefix(action, "issue-temp") {
-		return detector.ProcessLine(raw)
+	if !shouldIssuePastedChunk(detector, raw) {
+		return raw
 	}
 
 	core := strings.TrimRight(raw, "\r\n")
 	suffix := raw[len(core):]
-	if strings.TrimSpace(core) == "" {
-		return raw
-	}
-
 	vk := detector.issueVeilKey(core)
 	if vk == "" {
-		return detector.ProcessLine(raw)
+		return raw
 	}
 	if detector.logger != nil {
 		preview := core
@@ -51,28 +98,6 @@ func transformPastedInput(detector *SecretDetector, data []byte) string {
 	}
 	detector.Stats.Detections++
 	return vk + suffix
-}
-
-func plaintextAction() string {
-	return os.Getenv("VEILKEY_PLAINTEXT_ACTION")
-}
-
-func shouldBlockAfterIssue() bool {
-	return strings.Contains(plaintextAction(), "and-block")
-}
-
-func shouldIssueInteractiveLine(line string) bool {
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return false
-	}
-	if strings.Contains(line, "VK:") || strings.Contains(line, "VE:") {
-		return false
-	}
-	if strings.ContainsAny(line, " \t|&;<>(){}[]$`\"'") {
-		return false
-	}
-	return true
 }
 
 // processStreamPty — PTY output stream processor
@@ -218,55 +243,31 @@ func filterStdinToPty(detector *SecretDetector, stdin io.Reader, ptmx io.Writer)
 		inputBuf.Reset()
 
 		if len(data) > 4 {
-			// Paste — optionally force temp issuance, otherwise filter normally
+			// Paste — filter secrets and issue temp refs only for non-command payloads.
 			processed := transformPastedInput(detector, data)
-			if shouldBlockAfterIssue() && processed != string(data) {
-				processed = strings.TrimRight(processed, "\r\n")
-			}
 			ptmx.Write([]byte(processed))
 		} else {
 			// Single key input
-			forwardOriginal := true
-			for _, b := range data {
-				switch {
-				case b == '\r' || b == '\n':
-					lineStr := lineBuf.String()
-					action := plaintextAction()
-					if strings.HasPrefix(action, "issue-temp") && shouldIssueInteractiveLine(lineStr) {
-						token := transformPastedInput(detector, []byte(lineStr))
-						if token != lineStr {
-							// Clear the current shell input, re-insert the token, then submit.
-							ptmx.Write([]byte{21}) // Ctrl+U
-							ptmx.Write([]byte(token))
-							if !shouldBlockAfterIssue() {
-								ptmx.Write([]byte{b})
-							}
-							lineBuf.Reset()
-							forwardOriginal = false
-							continue
-						}
-					}
-					if len(detector.watchlist) > 0 && !detector.Paused {
+			if len(detector.watchlist) > 0 && !detector.Paused {
+				for _, b := range data {
+					switch {
+					case b == '\r' || b == '\n':
 						maskLine()
-					}
-					lineBuf.Reset()
-				case b == 127 || b == 8:
-					if lineBuf.Len() > 0 {
-						lineBuf.Truncate(lineBuf.Len() - 1)
-					}
-				case b == 3 || b == 21: // Ctrl+C, Ctrl+U
-					lineBuf.Reset()
-				case b == 27: // ESC — start of arrow key sequence
-					lineBuf.Reset()
-				case b >= 32:
-					if !detector.Paused {
+						lineBuf.Reset()
+					case b == 127 || b == 8:
+						if lineBuf.Len() > 0 {
+							lineBuf.Truncate(lineBuf.Len() - 1)
+						}
+					case b == 3 || b == 21: // Ctrl+C, Ctrl+U
+						lineBuf.Reset()
+					case b == 27: // ESC — start of arrow key sequence
+						lineBuf.Reset()
+					case b >= 32:
 						lineBuf.WriteByte(b)
 					}
 				}
 			}
-			if forwardOriginal {
-				ptmx.Write(data)
-			}
+			ptmx.Write(data)
 		}
 	}
 

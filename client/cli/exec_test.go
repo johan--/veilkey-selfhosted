@@ -67,6 +67,7 @@ func TestExecVKHashResolution(t *testing.T) {
 }
 
 func TestExecVKHashRegex(t *testing.T) {
+
 	tests := []struct {
 		input   string
 		matches []string

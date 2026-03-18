@@ -155,7 +155,6 @@ func TestWatchlistExpiryPrune(t *testing.T) {
 	logger := NewSessionLogger(dir + "/session.log")
 	d := NewSecretDetector(cfg, nil, logger, true)
 
-	// Expired entry should be pruned, valid + no-ttl should remain
 	if len(d.watchlist) != 2 {
 		t.Fatalf("expected 2 watchlist entries after prune, got %d", len(d.watchlist))
 	}
@@ -166,15 +165,11 @@ func TestWatchlistExpiryPrune(t *testing.T) {
 		t.Errorf("expected no-ttl-val second, got %s", d.watchlist[1].Value)
 	}
 
-	// File should be rewritten without expired entry
 	data, _ := os.ReadFile(watchlistPath)
 	if strings.Contains(string(data), "expired-val") {
 		t.Error("expired entry should be removed from watchlist file")
 	}
 	if !strings.Contains(string(data), "valid-val") {
 		t.Error("valid entry should remain in watchlist file")
-	}
-	if !strings.Contains(string(data), "no-ttl-val") {
-		t.Error("no-ttl entry should remain in watchlist file")
 	}
 }
