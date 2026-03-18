@@ -2656,6 +2656,12 @@ async function handleAction(action, dataset) {
             return;
         }
         if (action === 'navigate-to-vault') {
+            const vault = state.vaults.find(v => v.vault_runtime_hash === dataset.key);
+            if (!vault) {
+                setMessage('warn', '연결된 볼트를 찾을 수 없습니다.');
+                render();
+                return;
+            }
             await selectVaultByKey(dataset.key);
             state.activePage = 'vaults';
             syncRoute(false);

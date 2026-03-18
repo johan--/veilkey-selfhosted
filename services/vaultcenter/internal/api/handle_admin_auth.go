@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,10 +20,11 @@ const adminSessionIdleDuration = 2 * time.Hour
 
 const loginMaxAttempts = 10
 const loginLockDuration = 15 * time.Minute
+const loginCleanupInterval = 10 * time.Minute
 
 type loginAttempt struct {
-	count     int
-	lockedAt  time.Time
+	count    int
+	lockedAt time.Time
 }
 
 var (
@@ -30,12 +32,69 @@ var (
 	loginAttempts = map[string]*loginAttempt{}
 )
 
-func remoteIP(r *http.Request) string {
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
+// privateRanges are RFC1918 + loopback used for proxy detection.
+var privateRanges []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"127.0.0.0/8", "::1/128",
+		"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+		"fc00::/7",
+	} {
+		_, network, _ := net.ParseCIDR(cidr)
+		privateRanges = append(privateRanges, network)
 	}
-	return ip
+
+	// Background cleanup: remove stale entries every loginCleanupInterval.
+	go func() {
+		for {
+			time.Sleep(loginCleanupInterval)
+			cutoff := time.Now().Add(-2 * loginLockDuration)
+			loginMu.Lock()
+			for ip, a := range loginAttempts {
+				if !a.lockedAt.IsZero() && a.lockedAt.Before(cutoff) {
+					delete(loginAttempts, ip)
+				}
+			}
+			loginMu.Unlock()
+		}
+	}()
+}
+
+func isPrivateIP(ip net.IP) bool {
+	for _, network := range privateRanges {
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// remoteIP returns the client IP address.
+// When the direct connection comes from a private/loopback address (i.e. a
+// reverse proxy on the same host or local network), it trusts X-Real-IP and
+// then the leftmost entry of X-Forwarded-For. This is safe for self-hosted
+// deployments; do not expose this server directly to the internet without a
+// trusted proxy in front.
+func remoteIP(r *http.Request) string {
+	addr, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		addr = r.RemoteAddr
+	}
+	if ip := net.ParseIP(addr); ip != nil && isPrivateIP(ip) {
+		if h := r.Header.Get("X-Real-IP"); h != "" {
+			if parsed := net.ParseIP(strings.TrimSpace(h)); parsed != nil {
+				return parsed.String()
+			}
+		}
+		if h := r.Header.Get("X-Forwarded-For"); h != "" {
+			first := strings.TrimSpace(strings.SplitN(h, ",", 2)[0])
+			if parsed := net.ParseIP(first); parsed != nil {
+				return parsed.String()
+			}
+		}
+	}
+	return addr
 }
 
 func checkLoginRateLimit(ip string) bool {
