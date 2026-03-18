@@ -38,11 +38,11 @@ allow_hosts = []
 # plaintext_resolve_hosts = ["api.openai.com"]
 
 [tools.codex]
-bin = "/usr/bin/codex"
+bin = "/usr/local/bin/codex"
 proxy = "codex"
 
 [tools.claude]
-bin = "/root/.local/bin/claude"
+bin = "/usr/local/bin/claude"
 proxy = "claude"
 
 [tools.opencode]

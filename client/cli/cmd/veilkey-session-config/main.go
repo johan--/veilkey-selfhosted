@@ -329,6 +329,13 @@ func main() {
 			fmt.Println(host)
 		}
 	case "shell-exports":
+		action := cfg.Rewrite.PlaintextAction
+		if action == "" {
+			action = "issue-temp-and-resolve"
+		}
+		if cfg.Proxy.Default.PlaintextAction != "" {
+			action = cfg.Proxy.Default.PlaintextAction
+		}
 		printExports([][2]string{
 			{"VEILKEY_PROXY_URL", cfg.Proxy.Default.URL},
 			{"HTTP_PROXY", cfg.Proxy.Default.URL},
@@ -337,6 +344,7 @@ func main() {
 			{"NO_PROXY", cfg.mergedNoProxy(cfg.Proxy.Default.NoProxy)},
 			{"VEILKEY_LOCALVAULT_URL", cfg.veilkeyLocalvaultURL()},
 			{"VEILKEY_KEYCENTER_URL", cfg.veilkeyKeycenterURL()},
+			{"VEILKEY_PLAINTEXT_ACTION", action},
 		})
 	case "tool-shell-exports":
 		if len(cmdArgs) < 1 {
@@ -352,6 +360,16 @@ func main() {
 		if noProxy == "" {
 			noProxy = cfg.Proxy.Default.NoProxy
 		}
+		action := cfg.Rewrite.PlaintextAction
+		if action == "" {
+			action = "issue-temp-and-resolve"
+		}
+		if cfg.Proxy.Default.PlaintextAction != "" {
+			action = cfg.Proxy.Default.PlaintextAction
+		}
+		if target.PlaintextAction != "" {
+			action = target.PlaintextAction
+		}
 		printExports([][2]string{
 			{"VEILKEY_PROXY_URL", target.URL},
 			{"HTTP_PROXY", target.URL},
@@ -360,6 +378,7 @@ func main() {
 			{"NO_PROXY", cfg.mergedNoProxy(noProxy)},
 			{"VEILKEY_LOCALVAULT_URL", cfg.veilkeyLocalvaultURL()},
 			{"VEILKEY_KEYCENTER_URL", cfg.veilkeyKeycenterURL()},
+			{"VEILKEY_PLAINTEXT_ACTION", action},
 		})
 	case "veilroot-default-profile":
 		value, err := chooseProfileValue(cfg.Veilroot.DefaultProfile, cfg.RootAI.DefaultProfile, "veilroot.default_profile")
