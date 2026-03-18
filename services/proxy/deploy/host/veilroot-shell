@@ -37,7 +37,7 @@ usage:
 EOF
 }
 
-keycenter_url() {
+vaultcenter_url() {
   local profile
   profile="$(default_profile)"
   "$session_config_bin" tool-shell-exports "$profile" | awk -F= '$1=="export VEILKEY_KEYCENTER_URL"{gsub(/^'\''|'\''$/,"",$2); print $2; exit}'
@@ -45,7 +45,7 @@ keycenter_url() {
 
 veilkey_connection_status() {
   local url
-  url="$(keycenter_url)"
+  url="$(vaultcenter_url)"
   if [[ -z "$url" ]]; then
     printf '%s' "disconnected"
     return

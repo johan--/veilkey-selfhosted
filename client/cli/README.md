@@ -13,7 +13,7 @@ VeilKey is split into:
   - `veilkey-homepage`
 - `self-hosted`
   - `installer`
-  - `keycenter`
+  - `vaultcenter`
   - `localvault`
   - `cli`
   - `proxy`
@@ -45,7 +45,7 @@ This component owns:
 
 - `localvault`
   - local agent and secret/config runtime
-- `keycenter`
+- `vaultcenter`
   - central control plane
 - `proxy`
   - outbound enforcement layer used by wrapped workloads

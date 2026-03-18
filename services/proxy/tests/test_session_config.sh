@@ -36,7 +36,7 @@ unit_prefix = "veilroot"
 
 [veilkey]
 localvault_url = "${TEST_LV_URL}"
-keycenter_url = "${TEST_KC_URL}"
+vaultcenter_url = "${TEST_KC_URL}"
 EOF
 
 export VEILKEY_SESSION_TOOLS_TOML="$cfg"

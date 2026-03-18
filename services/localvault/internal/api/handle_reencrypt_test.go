@@ -180,9 +180,9 @@ func TestHandleActivateRouteActivatesTempRefIntoLocal(t *testing.T) {
 		PreviousRef   string `json:"previous_ref"`
 		Status        string `json:"status"`
 	}
-	keycenter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	vaultcenter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/tracked-refs/sync" {
-			t.Fatalf("unexpected keycenter path: %s", r.URL.Path)
+			t.Fatalf("unexpected vaultcenter path: %s", r.URL.Path)
 		}
 		if err := json.NewDecoder(r.Body).Decode(&syncPayload); err != nil {
 			t.Fatalf("decode sync payload: %v", err)
@@ -190,8 +190,8 @@ func TestHandleActivateRouteActivatesTempRefIntoLocal(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	}))
-	defer keycenter.Close()
-	t.Setenv("VEILKEY_KEYCENTER_URL", keycenter.URL)
+	defer vaultcenter.Close()
+	t.Setenv("VEILKEY_KEYCENTER_URL", vaultcenter.URL)
 	server.SetIdentity(&NodeIdentity{NodeID: "test-node", VaultHash: "deadbeef", VaultName: "test-vault"})
 	handler := server.SetupRoutes()
 
@@ -243,20 +243,20 @@ func TestHandleActivateRouteActivatesTempRefIntoLocal(t *testing.T) {
 	}
 }
 
-func TestHandleActivatePrefersEnvKeycenterOverStaleDBConfig(t *testing.T) {
+func TestHandleActivatePrefersEnvVaultcenterOverStaleDBConfig(t *testing.T) {
 	server := setupReencryptTestServer(t)
 	if err := server.db.SaveConfig("VEILKEY_KEYCENTER_URL", "http://stale.example:10180"); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}
 	var syncPath string
-	keycenter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	vaultcenter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		syncPath = r.URL.Path
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	}))
-	defer keycenter.Close()
+	defer vaultcenter.Close()
 
-	t.Setenv("VEILKEY_KEYCENTER_URL", keycenter.URL)
+	t.Setenv("VEILKEY_KEYCENTER_URL", vaultcenter.URL)
 	server.SetIdentity(&NodeIdentity{NodeID: "test-node", VaultHash: "deadbeef", VaultName: "test-vault"})
 	handler := server.SetupRoutes()
 
@@ -275,12 +275,12 @@ func TestHandleActivatePrefersEnvKeycenterOverStaleDBConfig(t *testing.T) {
 
 func TestHandleActivateReturnsDegradedWhenTrackedRefSyncFails(t *testing.T) {
 	server := setupReencryptTestServer(t)
-	keycenter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	vaultcenter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "sync failed upstream", http.StatusBadGateway)
 	}))
-	defer keycenter.Close()
+	defer vaultcenter.Close()
 
-	t.Setenv("VEILKEY_KEYCENTER_URL", keycenter.URL)
+	t.Setenv("VEILKEY_KEYCENTER_URL", vaultcenter.URL)
 	server.SetIdentity(&NodeIdentity{NodeID: "test-node", VaultHash: "deadbeef", VaultName: "test-vault"})
 	handler := server.SetupRoutes()
 
@@ -307,7 +307,7 @@ func TestHandleActivateReturnsDegradedWhenTrackedRefSyncFails(t *testing.T) {
 	if resp.Status != "active" || resp.SyncStatus != "degraded" {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
-	if resp.SyncTarget != keycenter.URL {
+	if resp.SyncTarget != vaultcenter.URL {
 		t.Fatalf("sync target = %q", resp.SyncTarget)
 	}
 	if resp.SyncError == "" || resp.Warning == "" {

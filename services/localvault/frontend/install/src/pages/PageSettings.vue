@@ -13,22 +13,22 @@
         <span class="connection-status connected">{{ t.yes }}</span>
       </div>
       <div class="status-item">
-        <span class="status-label">KeyCenter URL</span>
-        <span class="status-value">{{ store.status?.keycenter_url || '-' }}</span>
+        <span class="status-label">VaultCenter URL</span>
+        <span class="status-value">{{ store.status?.vaultcenter_url || '-' }}</span>
       </div>
       <div class="status-item">
         <span class="status-label">{{ t.connection }}</span>
         <span
           class="connection-status"
-          :class="store.status?.keycenter_connected ? 'connected' : 'disconnected'"
+          :class="store.status?.vaultcenter_connected ? 'connected' : 'disconnected'"
         >
-          <template v-if="store.status?.keycenter_connected">{{ t.connected }}</template>
+          <template v-if="store.status?.vaultcenter_connected">{{ t.connected }}</template>
           <template v-else>{{ t.notConnected }}</template>
         </span>
       </div>
-      <div v-if="store.status?.keycenter_error" class="status-item error-detail">
+      <div v-if="store.status?.vaultcenter_error" class="status-item error-detail">
         <span class="status-label">{{ t.errorDetail }}</span>
-        <span class="status-value error-text">{{ store.status.keycenter_error }}</span>
+        <span class="status-value error-text">{{ store.status.vaultcenter_error }}</span>
       </div>
     </div>
 
@@ -37,12 +37,12 @@
       <h3>{{ t.editHeading }}</h3>
       <form @submit.prevent="handleSave">
         <div class="form-group">
-          <label class="form-label">KeyCenter URL</label>
+          <label class="form-label">VaultCenter URL</label>
           <input
             class="form-input"
             type="text"
-            v-model="store.keycenterUrl"
-            placeholder="https://keycenter.example.com:10181"
+            v-model="store.vaultcenterUrl"
+            placeholder="https://vaultcenter.example.com:10181"
           />
         </div>
         <div class="btn-row">
@@ -80,7 +80,7 @@
 
 <script setup>
 import { computed, ref, onMounted } from 'vue'
-import { store, loadStatus, updateKeycenterUrl } from '../store'
+import { store, loadStatus, updateVaultcenterUrl } from '../store'
 
 const saved = ref(false)
 
@@ -94,7 +94,7 @@ const i18n = {
     connected: '연결됨',
     notConnected: '연결 안 됨',
     errorDetail: '오류 상세',
-    editHeading: 'KeyCenter URL 변경',
+    editHeading: 'VaultCenter URL 변경',
     saveBtn: '저장',
     testBtn: '연결 테스트',
     saved: '저장되었습니다.',
@@ -109,7 +109,7 @@ const i18n = {
     connected: 'Connected',
     notConnected: 'Not connected',
     errorDetail: 'Error Detail',
-    editHeading: 'Change KeyCenter URL',
+    editHeading: 'Change VaultCenter URL',
     saveBtn: 'Save',
     testBtn: 'Test Connection',
     saved: 'Saved successfully.',
@@ -125,7 +125,7 @@ onMounted(() => {
 
 async function handleSave() {
   saved.value = false
-  const ok = await updateKeycenterUrl()
+  const ok = await updateVaultcenterUrl()
   if (ok) {
     saved.value = true
     await loadStatus()

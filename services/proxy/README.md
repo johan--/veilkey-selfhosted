@@ -13,7 +13,7 @@ VeilKey is split into:
   - `veilkey-homepage`
 - `self-hosted`
   - `installer`
-  - `keycenter`
+  - `vaultcenter`
   - `localvault`
   - `cli`
   - `proxy`
@@ -40,7 +40,7 @@ Operator-facing boundary scripts belong to `cli`. Outbound enforcement belongs h
   - operator entrypoint and `veilroot` host boundary
 - `localvault`
   - local secret and config runtime
-- `keycenter`
+- `vaultcenter`
   - control-plane orchestration
   - `default` -> `18080`
   - `codex` -> `18081`
@@ -137,7 +137,7 @@ systemctl enable --now veilkey-veilroot-egress-guard@codex.service
 
 Checks:
 
-- LocalVault and KeyCenter health
+- LocalVault and VaultCenter health
 - veilroot session boundary
 - veilroot observer and egress guard unit state
 - recent rewrite log sanity for all profiles

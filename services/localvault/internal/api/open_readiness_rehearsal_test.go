@@ -28,7 +28,7 @@ func TestOpenReadinessRehearsalStatusAndPlaintextBoundary(t *testing.T) {
 	if plaintextW.Code != http.StatusForbidden {
 		t.Fatalf("encrypt expected 403, got %d: %s", plaintextW.Code, plaintextW.Body.String())
 	}
-	if !bytes.Contains(plaintextW.Body.Bytes(), []byte(keycenterOnlyDecryptMessage)) {
-		t.Fatalf("encrypt should mention keycenter-only restriction: %s", plaintextW.Body.String())
+	if !bytes.Contains(plaintextW.Body.Bytes(), []byte(vaultcenterOnlyDecryptMessage)) {
+		t.Fatalf("encrypt should mention vaultcenter-only restriction: %s", plaintextW.Body.String())
 	}
 }

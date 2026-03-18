@@ -33,7 +33,7 @@ Do not assume a GitLab issue or MR flow for current contribution guidance unless
 ## Common Contribution Areas
 
 - installation and Proxmox wrapper improvements
-- KeyCenter or LocalVault runtime fixes
+- VaultCenter or LocalVault runtime fixes
 - CLI UX and operator workflow improvements
 - docs that make the self-hosted model easier to understand
 

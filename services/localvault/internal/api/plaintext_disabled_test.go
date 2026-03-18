@@ -60,8 +60,8 @@ func TestPlaintextHandlingEndpointsAreDisabled(t *testing.T) {
 			if w.Code != http.StatusForbidden {
 				t.Fatalf("expected 403, got %d: %s", w.Code, w.Body.String())
 			}
-			if !bytes.Contains(w.Body.Bytes(), []byte(keycenterOnlyDecryptMessage)) {
-				t.Fatalf("response does not mention keycenter-only restriction: %s", w.Body.String())
+			if !bytes.Contains(w.Body.Bytes(), []byte(vaultcenterOnlyDecryptMessage)) {
+				t.Fatalf("response does not mention vaultcenter-only restriction: %s", w.Body.String())
 			}
 		})
 	}

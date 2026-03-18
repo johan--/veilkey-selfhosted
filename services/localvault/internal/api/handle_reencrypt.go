@@ -93,7 +93,7 @@ func (s *Server) handleActivate(w http.ResponseWriter, r *http.Request) {
 			Scope:  targetScope,
 			ID:     parsed.ID,
 		}
-		s.respondLifecycleJSON(w, activated.CanonicalString(), "active", true, s.syncTrackedRefWithKeycenter(activated.CanonicalString(), parsed.CanonicalString(), secret.Version, "active"))
+		s.respondLifecycleJSON(w, activated.CanonicalString(), "active", true, s.syncTrackedRefWithVaultcenter(activated.CanonicalString(), parsed.CanonicalString(), secret.Version, "active"))
 		return
 	case RefFamilyVE:
 		config, err := s.db.GetConfig(parsed.ID)
@@ -114,7 +114,7 @@ func (s *Server) handleActivate(w http.ResponseWriter, r *http.Request) {
 			Scope:  targetScope,
 			ID:     parsed.ID,
 		}
-		s.respondLifecycleJSON(w, activated.CanonicalString(), "active", true, s.syncTrackedRefWithKeycenter(activated.CanonicalString(), parsed.CanonicalString(), 0, "active"))
+		s.respondLifecycleJSON(w, activated.CanonicalString(), "active", true, s.syncTrackedRefWithVaultcenter(activated.CanonicalString(), parsed.CanonicalString(), 0, "active"))
 		return
 	default:
 		s.respondError(w, http.StatusBadRequest, "family must be VK or VE")
@@ -175,7 +175,7 @@ func (s *Server) handleStatusTransition(w http.ResponseWriter, r *http.Request, 
 			s.respondError(w, http.StatusInternalServerError, "failed to update status: "+err.Error())
 			return
 		}
-		s.respondLifecycleJSON(w, parsed.CanonicalString(), status, false, s.syncTrackedRefWithKeycenter(parsed.CanonicalString(), "", secret.Version, status))
+		s.respondLifecycleJSON(w, parsed.CanonicalString(), status, false, s.syncTrackedRefWithVaultcenter(parsed.CanonicalString(), "", secret.Version, status))
 		return
 	case RefFamilyVE:
 		config, err := s.db.GetConfig(parsed.ID)
@@ -191,7 +191,7 @@ func (s *Server) handleStatusTransition(w http.ResponseWriter, r *http.Request, 
 			s.respondError(w, http.StatusInternalServerError, "failed to update status: "+err.Error())
 			return
 		}
-		s.respondLifecycleJSON(w, parsed.CanonicalString(), status, false, s.syncTrackedRefWithKeycenter(parsed.CanonicalString(), "", 0, status))
+		s.respondLifecycleJSON(w, parsed.CanonicalString(), status, false, s.syncTrackedRefWithVaultcenter(parsed.CanonicalString(), "", 0, status))
 		return
 	default:
 		s.respondError(w, http.StatusBadRequest, "family must be VK or VE")
@@ -216,7 +216,7 @@ func (s *Server) respondLifecycleJSON(w http.ResponseWriter, ciphertext, status 
 		}
 	}
 	if sync.Status == "skipped" && sync.URL == "" {
-		resp.Warning = "tracked-ref sync skipped: keycenter target not resolved"
+		resp.Warning = "tracked-ref sync skipped: vaultcenter target not resolved"
 	}
 	s.respondJSON(w, http.StatusOK, resp)
 }

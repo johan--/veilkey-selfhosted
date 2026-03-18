@@ -7,13 +7,13 @@ import (
 	"strings"
 )
 
-type keycenterTarget struct {
+type vaultcenterTarget struct {
 	URL      string
 	Source   string
 	Warnings []string
 }
 
-func (s *Server) resolveKeycenterTarget() keycenterTarget {
+func (s *Server) resolveVaultcenterTarget() vaultcenterTarget {
 	candidates := []struct {
 		label string
 		value string
@@ -22,7 +22,7 @@ func (s *Server) resolveKeycenterTarget() keycenterTarget {
 		{label: "db:VEILKEY_KEYCENTER_URL", value: s.lookupConfigValue("VEILKEY_KEYCENTER_URL")},
 	}
 
-	selected := keycenterTarget{}
+	selected := vaultcenterTarget{}
 	seen := map[string][]string{}
 	for _, candidate := range candidates {
 		candidate.value = normalizeURL(candidate.value)
@@ -45,7 +45,7 @@ func (s *Server) resolveKeycenterTarget() keycenterTarget {
 		}
 		selected.Warnings = append(
 			selected.Warnings,
-			fmt.Sprintf("keycenter URL drift: using %s from %s, ignored %s from %s",
+			fmt.Sprintf("vaultcenter URL drift: using %s from %s, ignored %s from %s",
 				selected.URL,
 				selected.Source,
 				value,
@@ -56,21 +56,21 @@ func (s *Server) resolveKeycenterTarget() keycenterTarget {
 	return selected
 }
 
-func (s *Server) logKeycenterTarget(context string) string {
-	target := s.resolveKeycenterTarget()
+func (s *Server) logVaultcenterTarget(context string) string {
+	target := s.resolveVaultcenterTarget()
 	if target.URL == "" {
 		log.Printf("%s: VEILKEY_KEYCENTER_URL not resolved", context)
 		return ""
 	}
-	log.Printf("%s: resolved keycenter=%s source=%s", context, target.URL, target.Source)
+	log.Printf("%s: resolved vaultcenter=%s source=%s", context, target.URL, target.Source)
 	for _, warning := range target.Warnings {
 		log.Printf("%s: WARNING %s", context, warning)
 	}
 	return target.URL
 }
 
-func (s *Server) LogResolvedKeycenterURL(context string) string {
-	return s.logKeycenterTarget(context)
+func (s *Server) LogResolvedVaultcenterURL(context string) string {
+	return s.logVaultcenterTarget(context)
 }
 
 func (s *Server) lookupConfigValue(key string) string {

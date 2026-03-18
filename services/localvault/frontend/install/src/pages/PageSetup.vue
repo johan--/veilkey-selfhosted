@@ -8,12 +8,12 @@
 
       <form @submit.prevent="handleInit">
         <div class="form-group">
-          <label class="form-label">KeyCenter URL <span class="required">*</span></label>
+          <label class="form-label">VaultCenter URL <span class="required">*</span></label>
           <input
             class="form-input"
             type="text"
-            v-model="store.keycenterUrl"
-            placeholder="https://keycenter.example.com:10181"
+            v-model="store.vaultcenterUrl"
+            placeholder="https://vaultcenter.example.com:10181"
             required
           />
         </div>
@@ -80,7 +80,7 @@ const polling = ref(false)
 const i18n = {
   ko: {
     heading: 'LocalVault 초기 설정',
-    desc: 'KeyCenter URL과 비밀번호를 설정하면 LocalVault가 초기화됩니다.',
+    desc: 'VaultCenter URL과 비밀번호를 설정하면 LocalVault가 초기화됩니다.',
     password: '비밀번호',
     passwordPh: '8자 이상 입력',
     passwordConfirm: '비밀번호 확인',
@@ -95,7 +95,7 @@ const i18n = {
   },
   en: {
     heading: 'LocalVault Initial Setup',
-    desc: 'Set the KeyCenter URL and password to initialize LocalVault.',
+    desc: 'Set the VaultCenter URL and password to initialize LocalVault.',
     password: 'Password',
     passwordPh: 'Minimum 8 characters',
     passwordConfirm: 'Confirm Password',
@@ -114,7 +114,7 @@ const t = computed(() => i18n[store.lang] || i18n.ko)
 
 const canSubmit = computed(() => {
   return (
-    store.keycenterUrl.trim() !== '' &&
+    store.vaultcenterUrl.trim() !== '' &&
     store.password.length >= 8 &&
     store.password === store.passwordConfirm
   )

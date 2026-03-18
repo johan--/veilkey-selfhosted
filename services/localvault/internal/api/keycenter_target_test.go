@@ -2,14 +2,14 @@ package api
 
 import "testing"
 
-func TestResolveKeycenterTargetPrefersEnvOverDB(t *testing.T) {
+func TestResolveVaultcenterTargetPrefersEnvOverDB(t *testing.T) {
 	server := setupReencryptTestServer(t)
 	if err := server.db.SaveConfig("VEILKEY_KEYCENTER_URL", "http://db.example:10180"); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}
 	t.Setenv("VEILKEY_KEYCENTER_URL", "http://env.example:10180")
 
-	target := server.resolveKeycenterTarget()
+	target := server.resolveVaultcenterTarget()
 	if target.URL != "http://env.example:10180" {
 		t.Fatalf("target.URL = %q", target.URL)
 	}
@@ -21,13 +21,13 @@ func TestResolveKeycenterTargetPrefersEnvOverDB(t *testing.T) {
 	}
 }
 
-func TestResolveKeycenterTargetFallsBackToDB(t *testing.T) {
+func TestResolveVaultcenterTargetFallsBackToDB(t *testing.T) {
 	server := setupReencryptTestServer(t)
 	if err := server.db.SaveConfig("VEILKEY_KEYCENTER_URL", "http://db.example:10180"); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}
 
-	target := server.resolveKeycenterTarget()
+	target := server.resolveVaultcenterTarget()
 	if target.URL != "http://db.example:10180" {
 		t.Fatalf("target.URL = %q", target.URL)
 	}

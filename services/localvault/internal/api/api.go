@@ -20,19 +20,19 @@ type NodeIdentity struct {
 }
 
 type Server struct {
-	db              *db.DB
-	kek             []byte
-	kekMu           sync.RWMutex
-	locked          bool
-	salt            []byte
-	trustedIPs      map[string]bool
-	trustedCIDRs    []*net.IPNet
-	identity        *NodeIdentity
-	unlockLimiter   *UnlockRateLimiter
-	httpClient      *http.Client
+	db            *db.DB
+	kek           []byte
+	kekMu         sync.RWMutex
+	locked        bool
+	salt          []byte
+	trustedIPs    map[string]bool
+	trustedCIDRs  []*net.IPNet
+	identity      *NodeIdentity
+	unlockLimiter *UnlockRateLimiter
+	httpClient    *http.Client
 }
 
-const keycenterOnlyDecryptMessage = "localvault direct plaintext handling is disabled; use keycenter"
+const vaultcenterOnlyDecryptMessage = "localvault direct plaintext handling is disabled; use vaultcenter"
 
 func (s *Server) SetIdentity(identity *NodeIdentity) {
 	s.identity = identity
@@ -168,7 +168,7 @@ func (s *Server) SetupRoutes() http.Handler {
 
 	// Install status/settings APIs (available in normal mode too)
 	mux.HandleFunc("GET /api/install/status", s.HandleInstallStatus)
-	mux.HandleFunc("PATCH /api/install/keycenter-url", s.requireTrustedIP(s.HandlePatchKeycenterURL))
+	mux.HandleFunc("PATCH /api/install/vaultcenter-url", s.requireTrustedIP(s.HandlePatchVaultcenterURL))
 
 	mux.HandleFunc("/health", s.handleHealth)
 	mux.HandleFunc("/ready", s.handleReady)
@@ -217,7 +217,7 @@ func (s *Server) SetupRoutes() http.Handler {
 	mux.HandleFunc("PUT /api/configs/bulk", s.requireTrustedIP(s.handleSaveConfigsBulk))
 	mux.HandleFunc("DELETE /api/configs/{key}", s.requireTrustedIP(s.handleDeleteConfig))
 
-	// Bulk apply (trusted orchestration from KeyCenter)
+	// Bulk apply (trusted orchestration from VaultCenter)
 	mux.HandleFunc("POST /api/bulk-apply/precheck", s.requireTrustedIP(s.requireUnlocked(s.handleBulkApplyPrecheck)))
 	mux.HandleFunc("POST /api/bulk-apply/execute", s.requireTrustedIP(s.requireUnlocked(s.handleBulkApplyExecute)))
 

@@ -17,5 +17,5 @@ func (s *Server) handleEncrypt(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusBadRequest, "plaintext is required")
 		return
 	}
-	s.respondError(w, http.StatusForbidden, keycenterOnlyDecryptMessage)
+	s.respondError(w, http.StatusForbidden, vaultcenterOnlyDecryptMessage)
 }

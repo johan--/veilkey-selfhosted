@@ -15,7 +15,7 @@ EOF
 
 source_script='
   source "'"${REPO_ROOT}"'/scripts/deploy-lxc.sh"
-  ensure_keycenter_env 100207 "'"${env_file}"'"
+  ensure_vaultcenter_env 100207 "'"${env_file}"'"
 '
 
 fake_bin="${tmp_dir}/bin"

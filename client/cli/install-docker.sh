@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# VeilKey KeyCenter — Docker 통합 설치 스크립트
+# VeilKey VaultCenter — Docker 통합 설치 스크립트
 # Usage:
 #   bash install-docker.sh                          # 대화형
 #   VEILKEY_PASSWORD_FILE=/path/to/pw NONINTERACTIVE=1 bash install-docker.sh  # 자동
 set -euo pipefail
 
-INSTALL_DIR="${VEILKEY_INSTALL_DIR:-/opt/veilkey-keycenter}"
+INSTALL_DIR="${VEILKEY_INSTALL_DIR:-/opt/veilkey-vaultcenter}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 COMPOSE_FILE="docker-compose.hub.yml"
 
@@ -23,7 +23,7 @@ error() { echo -e "${RED}[✗]${NC} $*"; exit 1; }
 command -v docker >/dev/null 2>&1 || error "Docker not found. Install Docker first."
 docker compose version >/dev/null 2>&1 || error "Docker Compose not found."
 
-info "VeilKey KeyCenter — Docker 설치"
+info "VeilKey VaultCenter — Docker 설치"
 echo ""
 
 # --- Collect Config ---
@@ -89,9 +89,9 @@ else
     # Inline compose if script is run standalone
     cat > "$INSTALL_DIR/docker-compose.yml" << 'COMPOSEYML'
 services:
-  veilkey-keycenter:
-    image: ${VEILKEY_REGISTRY:-ghcr.io}/veilkey/veilkey-keycenter:latest
-    container_name: veilkey-keycenter
+  veilkey-vaultcenter:
+    image: ${VEILKEY_REGISTRY:-ghcr.io}/veilkey/veilkey-vaultcenter:latest
+    container_name: veilkey-vaultcenter
     ports:
       - "${VEILKEY_PORT:-10180}:10180"
     volumes:
@@ -148,10 +148,10 @@ done
 echo ""
 if curl -sfk "https://127.0.0.1:${VEILKEY_PORT}/health" >/dev/null 2>&1 || curl -sf "http://127.0.0.1:${VEILKEY_PORT}/health" >/dev/null 2>&1; then
     NODE_INFO=$(curl -sfk "https://127.0.0.1:${VEILKEY_PORT}/api/status" || curl -sf "http://127.0.0.1:${VEILKEY_PORT}/api/status")
-    info "VeilKey KeyCenter 설치 완료!"
+    info "VeilKey VaultCenter 설치 완료!"
     echo ""
     echo "  ╔══════════════════════════════════════════════════════╗"
-    echo "  ║           VeilKey KeyCenter — Docker Install              ║"
+    echo "  ║           VeilKey VaultCenter — Docker Install              ║"
     echo "  ╚══════════════════════════════════════════════════════╝"
     echo ""
     echo "  Mode     : $VEILKEY_MODE"

@@ -57,10 +57,10 @@ install -m 0644 "$repo_root/deploy/lxc/veilkey-egress-proxy@.service" "$bundle_d
 install -m 0644 "$config_src" "$bundle_dir/etc/veilkey/session-tools.toml"
 install -m 0755 "$repo_root/deploy/lxc/verify-proxy-lxc.sh" "$bundle_dir/usr/local/lib/veilkey-proxy/verify-proxy-lxc.sh"
 localvault_url="${VEILKEY_LOCALVAULT_URL:-$("$bundle_dir/usr/local/bin/veilkey-session-config" --config "$bundle_dir/etc/veilkey/session-tools.toml" veilkey-localvault-url)}"
-keycenter_url="${VEILKEY_KEYCENTER_URL:-$("$bundle_dir/usr/local/bin/veilkey-session-config" --config "$bundle_dir/etc/veilkey/session-tools.toml" veilkey-keycenter-url)}"
+vaultcenter_url="${VEILKEY_KEYCENTER_URL:-$("$bundle_dir/usr/local/bin/veilkey-session-config" --config "$bundle_dir/etc/veilkey/session-tools.toml" veilkey-vaultcenter-url)}"
 cat >"$bundle_dir/etc/veilkey/proxy.env" <<EOF
 VEILKEY_LOCALVAULT_URL=$localvault_url
-VEILKEY_KEYCENTER_URL=$keycenter_url
+VEILKEY_KEYCENTER_URL=$vaultcenter_url
 VEILKEY_PROXY_ACCESS_LOG_FORMAT=$access_log_format
 EOF
 

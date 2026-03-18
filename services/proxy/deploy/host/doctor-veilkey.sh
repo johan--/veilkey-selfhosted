@@ -4,9 +4,9 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 check_temp_issuance=0
 localvault_health_url="${VEILKEY_LOCALVAULT_HEALTH_URL:?VEILKEY_LOCALVAULT_HEALTH_URL must be set}"
-keycenter_health_url="${VEILKEY_KEYCENTER_HEALTH_URL:?VEILKEY_KEYCENTER_HEALTH_URL must be set}"
-keycenter_api_url="${VEILKEY_KEYCENTER_API_URL:?VEILKEY_KEYCENTER_API_URL must be set}"
-keycenter_vmid="${VEILKEY_KEYCENTER_VMID:-100206}"
+vaultcenter_health_url="${VEILKEY_KEYCENTER_HEALTH_URL:?VEILKEY_KEYCENTER_HEALTH_URL must be set}"
+vaultcenter_api_url="${VEILKEY_KEYCENTER_API_URL:?VEILKEY_KEYCENTER_API_URL must be set}"
+vaultcenter_vmid="${VEILKEY_KEYCENTER_VMID:-100206}"
 veilroot_verify_bin="${VEILKEY_VEILROOT_VERIFY_BIN:-/usr/local/bin/verify-veilroot-session}"
 veilroot_default_profile="${VEILKEY_VEILROOT_DEFAULT_PROFILE:-$(/usr/local/bin/veilkey-session-config veilroot-default-profile 2>/dev/null || echo codex)}"
 veilroot_user="${VEILKEY_VEILROOT_USER:-veilroot}"
@@ -47,8 +47,8 @@ echo "== veilkey health =="
 echo "-- localvault --"
 curl -fsSk "$localvault_health_url"
 echo
-echo "-- keycenter --"
-curl -fsSk "$keycenter_health_url"
+echo "-- vaultcenter --"
+curl -fsSk "$vaultcenter_health_url"
 echo
 echo
 
@@ -87,8 +87,8 @@ echo "supported host boundary: veilroot only"
 echo
 
 if [[ "$check_temp_issuance" == "1" ]]; then
-  echo "== keycenter temp issuance =="
-  resp="$(vibe_lxc_ops "$keycenter_vmid" "curl -fsSk -X POST '${keycenter_api_url%/}/api/agents/veilkey-proxy/secrets' -H 'Content-Type: application/json' -d '{\"name\":\"doctor-temp-check\",\"value\":\"doctor-temp-check-value\"}'")"
+  echo "== vaultcenter temp issuance =="
+  resp="$(vibe_lxc_ops "$vaultcenter_vmid" "curl -fsSk -X POST '${vaultcenter_api_url%/}/api/agents/veilkey-proxy/secrets' -H 'Content-Type: application/json' -d '{\"name\":\"doctor-temp-check\",\"value\":\"doctor-temp-check-value\"}'")"
   printf '%s\n' "$resp"
   python3 - <<'PY' "$resp"
 import json, sys
@@ -102,7 +102,7 @@ print("temp issuance OK")
 PY
   echo
 else
-  echo "== keycenter temp issuance =="
+  echo "== vaultcenter temp issuance =="
   echo "skipped (use --check-temp-issuance to run a real TEMP issuance check)"
   echo
 fi

@@ -47,8 +47,8 @@ type profileDefaults struct {
 }
 
 type veilkeyConfig struct {
-	LocalvaultURL string `toml:"localvault_url"`
-	KeycenterURL  string `toml:"keycenter_url"`
+	LocalvaultURL  string `toml:"localvault_url"`
+	VaultcenterURL string `toml:"vaultcenter_url"`
 }
 
 type rewriteConfig struct {
@@ -102,10 +102,10 @@ func (c *config) veilkeyLocalvaultURL() string {
 	)
 }
 
-func (c *config) veilkeyKeycenterURL() string {
+func (c *config) veilkeyVaultcenterURL() string {
 	return getenvFirst(
 		os.Getenv("VEILKEY_KEYCENTER_URL"),
-		c.Veilkey.KeycenterURL,
+		c.Veilkey.VaultcenterURL,
 	)
 }
 
@@ -154,7 +154,7 @@ func (c *config) mergedNoProxy(base string) string {
 	for _, item := range strings.Split(base, ",") {
 		add(item)
 	}
-	for _, raw := range []string{c.veilkeyLocalvaultURL(), c.veilkeyKeycenterURL()} {
+	for _, raw := range []string{c.veilkeyLocalvaultURL(), c.veilkeyVaultcenterURL()} {
 		add(hostname(raw))
 	}
 	return strings.Join(order, ",")
@@ -363,7 +363,7 @@ func main() {
 			{"ALL_PROXY", proxyURL},
 			{"NO_PROXY", cfg.mergedNoProxy(cfg.Proxy.Default.NoProxy)},
 			{"VEILKEY_LOCALVAULT_URL", cfg.veilkeyLocalvaultURL()},
-			{"VEILKEY_KEYCENTER_URL", cfg.veilkeyKeycenterURL()},
+			{"VEILKEY_KEYCENTER_URL", cfg.veilkeyVaultcenterURL()},
 		})
 	case "tool-shell-exports":
 		if len(cmdArgs) < 1 {
@@ -387,7 +387,7 @@ func main() {
 			{"ALL_PROXY", proxyURL},
 			{"NO_PROXY", cfg.mergedNoProxy(noProxy)},
 			{"VEILKEY_LOCALVAULT_URL", cfg.veilkeyLocalvaultURL()},
-			{"VEILKEY_KEYCENTER_URL", cfg.veilkeyKeycenterURL()},
+			{"VEILKEY_KEYCENTER_URL", cfg.veilkeyVaultcenterURL()},
 		})
 	case "veilroot-default-profile":
 		value, err := chooseProfileValue(cfg.Veilroot.DefaultProfile, cfg.RootAI.DefaultProfile, "veilroot.default_profile")
@@ -398,8 +398,8 @@ func main() {
 		fmt.Println(value)
 	case "veilkey-localvault-url":
 		fmt.Println(cfg.veilkeyLocalvaultURL())
-	case "veilkey-keycenter-url":
-		fmt.Println(cfg.veilkeyKeycenterURL())
+	case "veilkey-vaultcenter-url":
+		fmt.Println(cfg.veilkeyVaultcenterURL())
 	case "veilroot-unit-prefix":
 		value, err := chooseProfileValue(cfg.Veilroot.UnitPrefix, cfg.RootAI.UnitPrefix, "veilroot.unit_prefix")
 		if err != nil {

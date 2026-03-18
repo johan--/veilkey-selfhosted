@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# VeilKey KeyCenter — Shell 올인원 설치 스크립트
+# VeilKey VaultCenter — Shell 올인원 설치 스크립트
 # Usage:
 #   bash install-shell.sh                          # 대화형
 #   VEILKEY_PASSWORD_FILE=/path/to/pw NONINTERACTIVE=1 bash install-shell.sh  # 자동
 set -euo pipefail
 
-BINARY_NAME="veilkey-keycenter"
+BINARY_NAME="veilkey-vaultcenter"
 INSTALL_BIN="/usr/local/bin/$BINARY_NAME"
-DATA_DIR="${VEILKEY_DATA_DIR:-/opt/veilkey-keycenter/data}"
-SERVICE_NAME="veilkey-keycenter"
+DATA_DIR="${VEILKEY_DATA_DIR:-/opt/veilkey-vaultcenter/data}"
+SERVICE_NAME="veilkey-vaultcenter"
 LISTEN_ADDR=":10180"
 REGISTRY="${VEILKEY_REGISTRY:-ghcr.io}"
-IMAGE="$REGISTRY/veilkey/veilkey-keycenter:latest"
+IMAGE="$REGISTRY/veilkey/veilkey-vaultcenter:latest"
 
 # --- Colors ---
 RED='\033[0;31m'
@@ -26,7 +26,7 @@ error() { echo -e "${RED}[✗]${NC} $*"; exit 1; }
 # --- Root check ---
 [[ $EUID -eq 0 ]] || error "root 권한이 필요합니다. sudo bash install-shell.sh"
 
-info "VeilKey KeyCenter — Shell 설치"
+info "VeilKey VaultCenter — Shell 설치"
 echo ""
 
 # --- Get binary ---
@@ -73,8 +73,8 @@ get_binary() {
     fi
 
     # Method 3: Copy from local build
-    if [[ -f "/opt/veilkey/storage/veilkey-keycenter" ]]; then
-        cp /opt/veilkey/storage/veilkey-keycenter "$INSTALL_BIN"
+    if [[ -f "/opt/veilkey/storage/veilkey-vaultcenter" ]]; then
+        cp /opt/veilkey/storage/veilkey-vaultcenter "$INSTALL_BIN"
         chmod +x "$INSTALL_BIN"
         info "로컬 바이너리 복사 완료"
         return 0
@@ -167,7 +167,7 @@ chmod 600 "$DATA_DIR/veilkey-env"
 info "systemd 서비스 등록..."
 cat > "/etc/systemd/system/${SERVICE_NAME}.service" << UNITFILE
 [Unit]
-Description=VeilKey KeyCenter
+Description=VeilKey VaultCenter
 After=network.target
 
 [Service]
@@ -201,10 +201,10 @@ done
 # --- Verify ---
 echo ""
 if curl -sfk "https://127.0.0.1:${VEILKEY_PORT}/health" >/dev/null 2>&1 || curl -sf "http://127.0.0.1:${VEILKEY_PORT}/health" >/dev/null 2>&1; then
-    info "VeilKey KeyCenter 설치 완료!"
+    info "VeilKey VaultCenter 설치 완료!"
     echo ""
     echo "  ╔══════════════════════════════════════════════════════╗"
-    echo "  ║           VeilKey KeyCenter — Shell Install               ║"
+    echo "  ║           VeilKey VaultCenter — Shell Install               ║"
     echo "  ╚══════════════════════════════════════════════════════╝"
     echo ""
     echo "  Mode     : $VEILKEY_MODE"

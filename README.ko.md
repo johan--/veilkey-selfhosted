@@ -8,7 +8,7 @@
 
 이 레포에는 직접 인프라에 설치해서 돌리기 위한 핵심 요소가 같이 들어 있습니다.
 
-- `KeyCenter`
+- `VaultCenter`
   - 중앙 제어면
 - `LocalVault`
   - 노드/컨테이너 근처에서 도는 로컬 런타임
@@ -32,7 +32,7 @@
 
 가장 짧게 이해하면 이렇습니다.
 
-1. `KeyCenter`가 중앙에서 정책과 카탈로그를 관리합니다.
+1. `VaultCenter`가 중앙에서 정책과 카탈로그를 관리합니다.
 2. 여러 개의 `LocalVault`가 각각의 호스트나 컨테이너 안에서 돌아갑니다.
 3. 운영자는 CLI와 설치 흐름으로 이 노드들을 등록하고 확인하고 업데이트합니다.
 4. 실제 런타임 변경은 heartbeat, tracked-ref sync, bulk-apply 흐름을 통해 퍼집니다.
@@ -43,7 +43,7 @@
 운영자 / CLI
      |
      v
- KeyCenter
+ VaultCenter
      |
      +---- LocalVault (컨테이너 A)
      +---- LocalVault (컨테이너 B)
@@ -52,7 +52,7 @@
 
 즉:
 
-- `KeyCenter`는 중앙에서 관리한다
+- `VaultCenter`는 중앙에서 관리한다
 - `LocalVault`는 각 노드에서 실제로 동작한다
 
 ## 왜 self-hosted 인가
@@ -72,7 +72,7 @@ VeilKey는 “각 노드가 제각각 알아서 관리하는 구조”가 아닙
 
 핵심은:
 
-- `LocalVault`는 `KeyCenter`에 등록됩니다
+- `LocalVault`는 `VaultCenter`에 등록됩니다
 - 중앙에서 각 노드의 상태와 binding을 볼 수 있습니다
 - 여러 노드에 대해 bulk-apply 형태의 변경을 밀 수 있습니다
 - 회전(rotation)이나 재바인딩(rebind)도 중앙 모델 안에서 다룹니다
@@ -88,14 +88,14 @@ VeilKey는 “각 노드가 제각각 알아서 관리하는 구조”가 아닙
 - `vault_hash`
   - 안정적인 vault 식별자
 - `vault_runtime_hash`
-  - 현재 KeyCenter binding 기준 해시
+  - 현재 VaultCenter binding 기준 해시
 - `managed_paths`
   - 이 노드가 다루는 경로 정보
 
 흐름은 대략 이렇습니다.
 
-1. LocalVault가 KeyCenter에 heartbeat를 보냅니다
-2. KeyCenter가 rotation 또는 rebind를 요구할 수 있습니다
+1. LocalVault가 VaultCenter에 heartbeat를 보냅니다
+2. VaultCenter가 rotation 또는 rebind를 요구할 수 있습니다
 3. LocalVault가 새 `key_version`을 반영합니다
 4. 다시 heartbeat 하면서 최신 runtime binding 상태를 보고합니다
 
@@ -128,13 +128,13 @@ curl http://127.0.0.1:10180/health
 
 기대 결과:
 
-- KeyCenter health 응답
+- VaultCenter health 응답
 - LocalVault health 응답
 - 등록 후 중앙 화면이나 상태 조회에서 노드가 보임
 
 ### 성공했을 때 보이는 것
 
-KeyCenter는 처음엔 locked 상태로 뜨고, unlock 뒤에 정상 상태로 바뀝니다.
+VaultCenter는 처음엔 locked 상태로 뜨고, unlock 뒤에 정상 상태로 바뀝니다.
 
 ```json
 GET /health
@@ -198,7 +198,7 @@ veilkey resolve VK:LOCAL:example
 |---|---|---|
 | hosted secret SaaS | 중앙 hosted control plane | 런타임과 상태를 직접 인프라 안에 둡니다 |
 | 범용 비밀번호 관리자 | 저장/조회 중심 | 노드 등록, runtime identity, 정책 기반 실행까지 다룹니다 |
-| 파일 암호화 워크플로우 | 저장소 파일 암호화 | KeyCenter + 여러 LocalVault + heartbeat/rebind 흐름이 있습니다 |
+| 파일 암호화 워크플로우 | 저장소 파일 암호화 | VaultCenter + 여러 LocalVault + heartbeat/rebind 흐름이 있습니다 |
 
 ## 기여
 

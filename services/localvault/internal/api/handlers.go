@@ -75,11 +75,11 @@ func formatVaultID(name, hash string) string {
 }
 
 func (s *Server) handleSaveSecret(w http.ResponseWriter, r *http.Request) {
-	s.respondError(w, http.StatusForbidden, keycenterOnlyDecryptMessage)
+	s.respondError(w, http.StatusForbidden, vaultcenterOnlyDecryptMessage)
 }
 
 func (s *Server) handleGetSecret(w http.ResponseWriter, r *http.Request) {
-	s.respondError(w, http.StatusForbidden, keycenterOnlyDecryptMessage)
+	s.respondError(w, http.StatusForbidden, vaultcenterOnlyDecryptMessage)
 }
 
 func (s *Server) handleListSecrets(w http.ResponseWriter, r *http.Request) {
@@ -147,9 +147,9 @@ func (s *Server) handleDeleteSecret(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleResolveSecret(w http.ResponseWriter, r *http.Request) {
-	// Only allow cascade requests from keycenter (federated resolve)
+	// Only allow cascade requests from vaultcenter (federated resolve)
 	if r.Header.Get("X-VeilKey-Cascade") != "true" {
-		s.respondError(w, http.StatusForbidden, keycenterOnlyDecryptMessage)
+		s.respondError(w, http.StatusForbidden, vaultcenterOnlyDecryptMessage)
 		return
 	}
 

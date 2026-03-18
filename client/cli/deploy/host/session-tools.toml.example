@@ -48,7 +48,7 @@ unit_prefix = "veilroot"
 
 [veilkey]
 localvault_url = ""
-keycenter_url = ""
+vaultcenter_url = ""
 
 # Environment examples:
 #   export VEILKEY_LOCALE=ko

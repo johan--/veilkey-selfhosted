@@ -12,7 +12,7 @@ require_cmd() {
   }
 }
 
-ensure_keycenter_env() {
+ensure_vaultcenter_env() {
   local vmid="$1"
   local env_file="$2"
   timeout 20s vibe_lxc_ops "$vmid" "python3 - <<'PY'
@@ -21,8 +21,8 @@ path = Path('$env_file')
 if not path.exists():
     raise SystemExit(0)
 lines = path.read_text().splitlines()
-has_keycenter = any(line.startswith('VEILKEY_KEYCENTER_URL=') for line in lines)
-if not has_keycenter:
+has_vaultcenter = any(line.startswith('VEILKEY_KEYCENTER_URL=') for line in lines)
+if not has_vaultcenter:
     lines.append('VEILKEY_KEYCENTER_URL=')
     path.write_text('\\n'.join(lines) + '\\n')
 PY"
@@ -64,7 +64,7 @@ for vmid in "${vmids[@]}"; do
     continue
   fi
 
-  ensure_keycenter_env "$vmid" "$env_file"
+  ensure_vaultcenter_env "$vmid" "$env_file"
 
   if ! timeout 30s vibe_lxc_ops "$vmid" "systemctl stop ${SERVICE_NAME}"; then
     echo "Warning: failed to stop ${SERVICE_NAME} on ${vmid}, skipping" >&2

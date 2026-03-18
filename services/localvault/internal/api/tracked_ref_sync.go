@@ -16,8 +16,8 @@ type trackedRefSyncResult struct {
 	Error    string   `json:"error,omitempty"`
 }
 
-func (s *Server) syncTrackedRefWithKeycenter(ref string, previousRef string, version int, status string) trackedRefSyncResult {
-	target := s.resolveKeycenterTarget()
+func (s *Server) syncTrackedRefWithVaultcenter(ref string, previousRef string, version int, status string) trackedRefSyncResult {
+	target := s.resolveVaultcenterTarget()
 	result := trackedRefSyncResult{
 		Status:   "skipped",
 		URL:      target.URL,

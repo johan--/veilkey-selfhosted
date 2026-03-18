@@ -99,7 +99,7 @@ func (s *Server) handleFunctions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if strings.EqualFold(req.Scope, "GLOBAL") {
-			s.respondError(w, http.StatusBadRequest, "GLOBAL functions are managed by KeyCenter sync only")
+			s.respondError(w, http.StatusBadRequest, "GLOBAL functions are managed by VaultCenter sync only")
 			return
 		}
 		if err := s.db.SaveFunction(&req); err != nil {
@@ -133,7 +133,7 @@ func (s *Server) handleFunction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if strings.EqualFold(fn.Scope, "GLOBAL") {
-			s.respondError(w, http.StatusBadRequest, "GLOBAL functions are managed by KeyCenter sync only")
+			s.respondError(w, http.StatusBadRequest, "GLOBAL functions are managed by VaultCenter sync only")
 			return
 		}
 		if err := s.db.DeleteFunction(name); err != nil {

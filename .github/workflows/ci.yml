@@ -15,7 +15,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      keycenter: ${{ steps.filter.outputs.keycenter }}
+      vaultcenter: ${{ steps.filter.outputs.vaultcenter }}
       localvault: ${{ steps.filter.outputs.localvault }}
       proxy: ${{ steps.filter.outputs.proxy }}
       cli: ${{ steps.filter.outputs.cli }}
@@ -27,8 +27,8 @@ jobs:
         id: filter
         with:
           filters: |
-            keycenter:
-              - 'services/keycenter/**'
+            vaultcenter:
+              - 'services/vaultcenter/**'
             localvault:
               - 'services/localvault/**'
             proxy:
@@ -40,38 +40,38 @@ jobs:
             shared:
               - 'shared/**'
 
-  # ── KeyCenter ─────────────────────────────────────────────────
-  keycenter:
+  # ── VaultCenter ─────────────────────────────────────────────────
+  vaultcenter:
     needs: changes
-    if: needs.changes.outputs.keycenter == 'true' || needs.changes.outputs.shared == 'true' || github.ref_type == 'tag'
+    if: needs.changes.outputs.vaultcenter == 'true' || needs.changes.outputs.shared == 'true' || github.ref_type == 'tag'
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: services/keycenter
+        working-directory: services/vaultcenter
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: services/keycenter/go.mod
+          go-version-file: services/vaultcenter/go.mod
       - name: Install SQLCipher
         run: sudo apt-get update && sudo apt-get install -y libsqlcipher-dev
       - name: Lint
         uses: golangci/golangci-lint-action@v7
         with:
           only-new-issues: true
-          working-directory: services/keycenter
+          working-directory: services/vaultcenter
           version: "v2.1"
       - name: Test
         run: |
           go test ./... -race -count=1
       - name: Build
-        run: CGO_ENABLED=1 go build -o veilkey-keycenter ./cmd
+        run: CGO_ENABLED=1 go build -o veilkey-vaultcenter ./cmd
       - name: Upload artifact
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
-          name: veilkey-keycenter-linux-amd64
-          path: services/keycenter/veilkey-keycenter
+          name: veilkey-vaultcenter-linux-amd64
+          path: services/vaultcenter/veilkey-vaultcenter
 
   # ── LocalVault ────────────────────────────────────────────────
   localvault:
@@ -223,12 +223,12 @@ jobs:
   # ── PR 게이트 (모든 필수 job 통과 확인) ──────────────────────
   pr-gate:
     if: always()
-    needs: [keycenter, localvault, proxy, cli, installer, shared]
+    needs: [vaultcenter, localvault, proxy, cli, installer, shared]
     runs-on: ubuntu-latest
     steps:
       - name: Check results
         run: |
-          results=("${{ needs.keycenter.result }}" "${{ needs.localvault.result }}" "${{ needs.proxy.result }}" "${{ needs.cli.result }}" "${{ needs.installer.result }}" "${{ needs.shared.result }}")
+          results=("${{ needs.vaultcenter.result }}" "${{ needs.localvault.result }}" "${{ needs.proxy.result }}" "${{ needs.cli.result }}" "${{ needs.installer.result }}" "${{ needs.shared.result }}")
           for r in "${results[@]}"; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
               echo "Job failed: $r"

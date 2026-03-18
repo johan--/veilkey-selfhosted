@@ -6,7 +6,7 @@ Canonical home: `https://veil-key.com`
 
 ## Core Split
 
-- `KeyCenter`
+- `VaultCenter`
   - central control plane
   - registration, policy, audit, bulk changes
 - `LocalVault`
@@ -32,7 +32,7 @@ For operator entrypoints, the current split is:
 operator / CLI
       |
       v
-  KeyCenter
+  VaultCenter
       |
       +---- LocalVault (container A)
       +---- LocalVault (container B)
@@ -42,15 +42,15 @@ operator / CLI
 The practical meaning is:
 
 1. operators act on the central control plane
-2. KeyCenter records policy and desired runtime state
+2. VaultCenter records policy and desired runtime state
 3. LocalVault nodes heartbeat and reconcile toward that state
 4. wrapped execution stays close to the node instead of moving runtime secrets into a hosted SaaS edge
 
 ## Typical Operator Flow
 
 1. install or activate a LocalVault node
-2. verify `KeyCenter` and `LocalVault` health
-3. unlock or initialize KeyCenter
+2. verify `VaultCenter` and `LocalVault` health
+3. unlock or initialize VaultCenter
 4. register and inspect node identity
 5. apply rotation or rebind from the center
 6. verify heartbeat and updated runtime state
@@ -63,7 +63,7 @@ For CLI-driven local operator work, the intended flow is:
 
 ## What Success Looks Like
 
-- KeyCenter health responds
+- VaultCenter health responds
 - LocalVault health responds
 - the node reports heartbeat
 - runtime state reflects the current `key_version`

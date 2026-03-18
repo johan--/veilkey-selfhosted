@@ -112,7 +112,7 @@ func TestFunctionEndpointsRejectManualGlobalMutation(t *testing.T) {
 	if save.Code != http.StatusBadRequest {
 		t.Fatalf("expected GLOBAL save rejection, got %d %s", save.Code, save.Body.String())
 	}
-	if !strings.Contains(save.Body.String(), "KeyCenter sync") {
+	if !strings.Contains(save.Body.String(), "VaultCenter sync") {
 		t.Fatalf("unexpected save rejection body: %s", save.Body.String())
 	}
 
@@ -124,7 +124,7 @@ func TestFunctionEndpointsRejectManualGlobalMutation(t *testing.T) {
 		Category:     "gitlab",
 		Command:      `curl -sS https://example.test/{%{TOKEN}%}`,
 		VarsJSON:     `{"TOKEN":{"ref":"VK:EXTERNAL:abcd1234","class":"EXTERNAL"}}`,
-		Provenance:   "keycenter-sync",
+		Provenance:   "vaultcenter-sync",
 	}); err != nil {
 		t.Fatalf("SaveFunction global materialized: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestFunctionEndpointsRejectManualGlobalMutation(t *testing.T) {
 	if del.Code != http.StatusBadRequest {
 		t.Fatalf("expected GLOBAL delete rejection, got %d %s", del.Code, del.Body.String())
 	}
-	if !strings.Contains(del.Body.String(), "KeyCenter sync") {
+	if !strings.Contains(del.Body.String(), "VaultCenter sync") {
 		t.Fatalf("unexpected delete rejection body: %s", del.Body.String())
 	}
 }

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# VeilKey KeyCenter — 통합 제거 스크립트
+# VeilKey VaultCenter — 통합 제거 스크립트
 # Docker / Shell 설치 자동 감지 후 제거
 set -euo pipefail
 
-SERVICE_NAME="veilkey-keycenter"
-BINARY_PATH="/usr/local/bin/veilkey-keycenter"
-DOCKER_DIR="${VEILKEY_INSTALL_DIR:-/opt/veilkey-keycenter}"
-DATA_DIR="${VEILKEY_DATA_DIR:-/opt/veilkey-keycenter/data}"
+SERVICE_NAME="veilkey-vaultcenter"
+BINARY_PATH="/usr/local/bin/veilkey-vaultcenter"
+DOCKER_DIR="${VEILKEY_INSTALL_DIR:-/opt/veilkey-vaultcenter}"
+DATA_DIR="${VEILKEY_DATA_DIR:-/opt/veilkey-vaultcenter/data}"
 
 # --- Colors ---
 RED='\033[0;31m'
@@ -34,7 +34,7 @@ fi
 
 if ! $HAS_DOCKER && ! $HAS_SHELL; then
     # 추가 감지: 컨테이너가 실행 중인지 확인
-    if command -v docker >/dev/null 2>&1 && docker ps -a --format '{{.Names}}' | grep -q "^veilkey-keycenter$"; then
+    if command -v docker >/dev/null 2>&1 && docker ps -a --format '{{.Names}}' | grep -q "^veilkey-vaultcenter$"; then
         HAS_DOCKER=true
     fi
     if [[ -f "$BINARY_PATH" ]]; then
@@ -43,12 +43,12 @@ if ! $HAS_DOCKER && ! $HAS_SHELL; then
 fi
 
 if ! $HAS_DOCKER && ! $HAS_SHELL; then
-    error "VeilKey KeyCenter 설치를 찾을 수 없습니다."
+    error "VeilKey VaultCenter 설치를 찾을 수 없습니다."
 fi
 
 echo ""
 echo "  ╔══════════════════════════════════════════════════════╗"
-echo "  ║           VeilKey KeyCenter — Uninstall                   ║"
+echo "  ║           VeilKey VaultCenter — Uninstall                   ║"
 echo "  ╚══════════════════════════════════════════════════════╝"
 echo ""
 
@@ -62,7 +62,7 @@ echo ""
 
 # --- Confirmation ---
 if [[ "${NONINTERACTIVE:-}" != "1" ]]; then
-    read -rp "  VeilKey KeyCenter를 제거하시겠습니까? [y/N]: " confirm
+    read -rp "  VeilKey VaultCenter를 제거하시겠습니까? [y/N]: " confirm
     [[ "$confirm" =~ ^[yY]$ ]] || { echo "취소됨."; exit 0; }
 fi
 
@@ -132,4 +132,4 @@ if [[ -d "$DOCKER_DIR" ]] && [[ -z "$(ls -A "$DOCKER_DIR" 2>/dev/null)" ]]; then
 fi
 
 echo ""
-info "VeilKey KeyCenter 제거 완료!"
+info "VeilKey VaultCenter 제거 완료!"

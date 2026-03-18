@@ -55,8 +55,8 @@ func runServer() {
 	// Normal mode: salt exists, load full server
 	server, addr, listenPort := mustLoadServer()
 
-	// Heartbeat to keycenter using the same effective target as tracked-ref sync.
-	hubURL := server.LogResolvedKeycenterURL("startup")
+	// Heartbeat to vaultcenter using the same effective target as tracked-ref sync.
+	hubURL := server.LogResolvedVaultcenterURL("startup")
 	hostname, _ := os.Hostname()
 	server.StartHeartbeat(hubURL, hostname, listenPort, 5*time.Minute)
 
@@ -113,7 +113,7 @@ func runSetupServer(dbPath, dataDir string) {
 
 	// Install APIs
 	mux.HandleFunc("GET /api/install/status", server.HandleInstallStatus)
-	mux.HandleFunc("PATCH /api/install/keycenter-url", server.HandlePatchKeycenterURL)
+	mux.HandleFunc("PATCH /api/install/vaultcenter-url", server.HandlePatchVaultcenterURL)
 	mux.HandleFunc("POST /api/install/init", func(w http.ResponseWriter, r *http.Request) {
 		handleInstallInit(w, r, database, dataDir, server)
 	})
@@ -135,15 +135,15 @@ func runSetupServer(dbPath, dataDir string) {
 
 func handleInstallInit(w http.ResponseWriter, r *http.Request, database *db.DB, dataDir string, server *api.Server) {
 	var req struct {
-		Password     string `json:"password"`
-		KeycenterURL string `json:"keycenter_url"`
+		Password       string `json:"password"`
+		VaultcenterURL string `json:"vaultcenter_url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 	req.Password = strings.TrimSpace(req.Password)
-	req.KeycenterURL = strings.TrimSpace(req.KeycenterURL)
+	req.VaultcenterURL = strings.TrimSpace(req.VaultcenterURL)
 
 	if len(req.Password) < 8 {
 		http.Error(w, "password must be at least 8 characters", http.StatusBadRequest)
@@ -199,15 +199,15 @@ func handleInstallInit(w http.ResponseWriter, r *http.Request, database *db.DB, 
 		return
 	}
 
-	// Save keycenter URL to DB config if provided
-	if req.KeycenterURL != "" {
-		normalized := strings.TrimRight(req.KeycenterURL, "/")
+	// Save vaultcenter URL to DB config if provided
+	if req.VaultcenterURL != "" {
+		normalized := strings.TrimRight(req.VaultcenterURL, "/")
 		if err := database.SaveConfig("VEILKEY_KEYCENTER_URL", normalized); err != nil {
-			log.Printf("install: failed to save keycenter URL: %v", err)
-			http.Error(w, "failed to save keycenter URL", http.StatusInternalServerError)
+			log.Printf("install: failed to save vaultcenter URL: %v", err)
+			http.Error(w, "failed to save vaultcenter URL", http.StatusInternalServerError)
 			return
 		}
-		log.Printf("install: keycenter URL saved: %s", normalized)
+		log.Printf("install: vaultcenter URL saved: %s", normalized)
 	}
 
 	// Write salt file (this is the trigger that switches from setup to normal mode)
@@ -323,7 +323,7 @@ func runCron() {
 		} else if deleted > 0 {
 			log.Printf("cron tick deleted %d expired TEST functions", deleted)
 		}
-		hubURL := server.LogResolvedKeycenterURL("cron")
+		hubURL := server.LogResolvedVaultcenterURL("cron")
 		if hubURL == "" {
 			log.Fatal("VEILKEY_KEYCENTER_URL is required for cron tick")
 		}

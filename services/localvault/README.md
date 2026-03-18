@@ -2,7 +2,7 @@
 
 `localvault` is the canonical node-local VeilKey runtime.
 
-It stores local ciphertext, configs, and runtime identity, and it executes node-local lifecycle actions under KeyCenter policy.
+It stores local ciphertext, configs, and runtime identity, and it executes node-local lifecycle actions under VaultCenter policy.
 
 ## Product Position
 
@@ -13,7 +13,7 @@ VeilKey is split into:
   - `veilkey-homepage`
 - `self-hosted`
   - [`installer`](../../installer)
-  - [`keycenter`](../keycenter)
+  - [`vaultcenter`](../vaultcenter)
   - `localvault` (this component)
   - [`cli`](../../client/cli)
   - [`proxy`](../proxy)
@@ -26,9 +26,9 @@ This component owns:
 - runtime identity (`vault_node_uuid` / `vault_hash`) and heartbeat
 - local resolve and decrypt flows
 - bulk-apply execution
-- `managed_paths` reporting to KeyCenter
+- `managed_paths` reporting to VaultCenter
 - planned rotation, rebind, and blocked state reflection
-- node-local policy enforcement requested by KeyCenter
+- node-local policy enforcement requested by VaultCenter
 
 This component does **not** own:
 
@@ -36,7 +36,7 @@ This component does **not** own:
 - operator approval
 - central encrypt/decrypt policy decisions
 
-Those responsibilities belong to KeyCenter and the CLI.
+Those responsibilities belong to VaultCenter and the CLI.
 
 ## Identity Terms
 
@@ -45,7 +45,7 @@ Those responsibilities belong to KeyCenter and the CLI.
 | `vault_node_uuid` | UUID of the current LocalVault instance |
 | `node_id` | compatibility alias of `vault_node_uuid` |
 | `vault_hash` | stable vault identifier |
-| `vault_runtime_hash` | current KeyCenter runtime binding hash |
+| `vault_runtime_hash` | current VaultCenter runtime binding hash |
 | `agent_hash` | internal API compatibility alias for `vault_runtime_hash` |
 
 Identity rules:
@@ -56,13 +56,13 @@ Identity rules:
 
 ## Related Components
 
-- [`keycenter`](../keycenter) -- central control plane
+- [`vaultcenter`](../vaultcenter) -- central control plane
 - [`installer`](../../installer) -- installs and verifies LocalVault targets
 - [`cli`](../../client/cli) -- operator entrypoint, local tooling, and platform integration (Proxmox, Docker, etc.)
 
-## KeyCenter URL Resolution
+## VaultCenter URL Resolution
 
-Heartbeat and tracked-ref sync share a single effective KeyCenter URL, resolved by this precedence:
+Heartbeat and tracked-ref sync share a single effective VaultCenter URL, resolved by this precedence:
 
 1. `VEILKEY_KEYCENTER_URL` environment variable
 2. `VEILKEY_KEYCENTER_URL` stored in DB config
@@ -71,14 +71,14 @@ If multiple sources contain differing values, a drift warning is logged at start
 
 ## Security Boundary
 
-- Plaintext encryption/decryption is not performed in LocalVault. LocalVault is a ciphertext store; plaintext handling belongs to KeyCenter.
+- Plaintext encryption/decryption is not performed in LocalVault. LocalVault is a ciphertext store; plaintext handling belongs to VaultCenter.
 - The following endpoints are blocked (`403`):
   - `POST /api/secrets`, `GET /api/secrets/{name}`, `GET /api/resolve/{ref}`, `POST /api/encrypt`, `POST /api/rekey`
 - Blocked-state read/use paths must be **fail-closed**: `GET /api/cipher/{ref}`, `GET /api/configs/{key}`, and explicit lifecycle transition endpoints return `423` with the canonical scoped ref.
 - New secret storage defaults to scoped ref `TEMP/temp`.
 - Re-storing a secret that is already `LOCAL/active` or `EXTERNAL/active` preserves the existing lifecycle.
 - Companion field storage is only allowed when the parent secret is `VK:LOCAL` or `VK:EXTERNAL` and in `active` state.
-- `activate`, `archive`, `block`, and `revoke` attempt a KeyCenter tracked-ref sync after the lifecycle change. If sync fails the lifecycle change is kept, and the API response includes `sync_status=degraded`, `sync_target`, and `sync_error` to surface partial failure.
+- `activate`, `archive`, `block`, and `revoke` attempt a VaultCenter tracked-ref sync after the lifecycle change. If sync fails the lifecycle change is kept, and the API response includes `sync_status=degraded`, `sync_target`, and `sync_error` to surface partial failure.
 
 ## Features
 
@@ -86,7 +86,7 @@ If multiple sources contain differing values, a drift warning is logged at start
 - Metadata retrieval via `/api/cipher` and `/api/secrets/meta/{name}`
 - Companion field (`OTP`, `LOGIN_ID`, `KEY_PASSWORD`, etc.) metadata/cipher storage for `VK:LOCAL` / `VK:EXTERNAL` secrets
 - Local configs CRUD (plaintext key-value)
-- Automatic KeyCenter registration and heartbeat
+- Automatic VaultCenter registration and heartbeat
 - Vault identity reporting based on `vault_name:vault_hash`
 - `managed_paths` reporting from `.veilkey/context.json` or `VEILKEY_MANAGED_PATHS`
 
@@ -97,7 +97,7 @@ LocalVault stores vault-local function rows:
 - One function = one DB row.
 - Scope is restricted to `GLOBAL`, `VAULT`, `LOCAL`, or `TEST`.
 - `vars_json` stores per-variable `ref` and `LOCAL` | `EXTERNAL` class.
-- `GLOBAL` functions are pull-synced from the KeyCenter SSOT as local materialized copies. The local API does not allow direct creation or deletion of `GLOBAL` rows; they are managed exclusively by KeyCenter sync.
+- `GLOBAL` functions are pull-synced from the VaultCenter SSOT as local materialized copies. The local API does not allow direct creation or deletion of `GLOBAL` rows; they are managed exclusively by VaultCenter sync.
 - Rows can be queried with a scope filter, e.g. `GET /api/functions?scope=TEST`.
 - `scope=TEST` functions are auto-deleted during `cron tick` once `created_at + 1h` has elapsed.
 
@@ -107,10 +107,10 @@ LocalVault stores vault-local function rows:
 CGO_ENABLED=1 go build -ldflags="-s -w" -o veilkey-localvault .
 ```
 
-Initialization is performed automatically via the KeyCenter `init --child` command:
+Initialization is performed automatically via the VaultCenter `init --child` command:
 
 ```bash
-veilkey-keycenter init --child \
+veilkey-vaultcenter init --child \
   --parent http://KEYCENTER_IP:10180 \
 --label my-service \
   --install
@@ -153,7 +153,7 @@ Docker image push and LXC runtime deploy are separate CI stages so that an image
 | `POST /api/encrypt` | `{"plaintext":"val"}` | Blocked (`403`) |
 | `GET /api/cipher/{ref}` | | Retrieve ciphertext/nonce by ref |
 | `GET /api/cipher/{ref}/fields/{field}` | | Retrieve companion field ciphertext/nonce for LOCAL/EXTERNAL secret |
-| `POST /api/cipher` | `{"name":"key","ref":"...","ciphertext":"...","nonce":"..."}` | Store KeyCenter-encrypted ciphertext. New secret defaults to `VK:TEMP:*` + `temp`; updating an existing secret preserves its lifecycle |
+| `POST /api/cipher` | `{"name":"key","ref":"...","ciphertext":"...","nonce":"..."}` | Store VaultCenter-encrypted ciphertext. New secret defaults to `VK:TEMP:*` + `temp`; updating an existing secret preserves its lifecycle |
 | `POST /api/secrets/fields` | `{"name":"GITHUB_KEY","fields":[{"key":"OTP","type":"otp","ciphertext":"...","nonce":"..."}]}` | Store/update companion fields on `VK:LOCAL`/`VK:EXTERNAL` + `active` secrets |
 | `DELETE /api/secrets/{name}/fields/{field}` | | Delete companion field on active `VK:LOCAL`/`VK:EXTERNAL` secret |
 | `POST /api/reencrypt` | `{"ciphertext":"VK:TEMP:deadbeef"}` | Verify scoped ref on explicit transition path and return canonical ref |
@@ -175,14 +175,14 @@ LocalVault intentionally separates its read model into two tiers:
 - `GET /api/secrets`
   - Lightweight local inventory only.
   - Returns name / ref / scope / status / version / updated timestamp.
-  - Does not serve operator-wide search, cross-vault list, or binding count (those are KeyCenter catalog responsibilities).
+  - Does not serve operator-wide search, cross-vault list, or binding count (those are VaultCenter catalog responsibilities).
 - `GET /api/secrets/meta/{name}`
   - Single-secret detail view.
   - Includes `display_name`, `description`, `tags_json`, `origin`, `class`.
   - Includes `last_rotated_at`, `last_revealed_at`.
   - Includes companion field metadata (`field_role`, `display_name`, `masked_by_default`, `required`, `sort_order`).
 
-The canonical list/search source for operator inventory is the KeyCenter operator catalog. LocalVault serves as the per-secret detail and ciphertext-owner metadata source.
+The canonical list/search source for operator inventory is the VaultCenter operator catalog. LocalVault serves as the per-secret detail and ciphertext-owner metadata source.
 
 ## Cron / Rebind
 
@@ -192,16 +192,16 @@ veilkey-localvault rebind --key-version 9
 ```
 
 - `cron tick`
-  - Reports the current LocalVault identity and `managed_paths` to KeyCenter via heartbeat.
-  - Pulls the KeyCenter `GLOBAL` function registry into the local `functions` table before heartbeat.
+  - Reports the current LocalVault identity and `managed_paths` to VaultCenter via heartbeat.
+  - Pulls the VaultCenter `GLOBAL` function registry into the local `functions` table before heartbeat.
   - If a planned rotation is scheduled, automatically applies the new `key_version` and retries the heartbeat within the same tick.
   - Re-reads `node_info.version` from DB immediately before each heartbeat so that a just-applied rotation value is never stale in memory.
-  - Exits non-zero if KeyCenter returns `rebind_required` or `blocked`.
+  - Exits non-zero if VaultCenter returns `rebind_required` or `blocked`.
 - `rebind --key-version`
   - After a human-approved rebind, updates the local `node_info.version` to the new key version.
   - A service restart and heartbeat re-registration must follow.
 
-Tracked-ref sync and heartbeat share the same effective KeyCenter URL resolution. Payloads include `vault_node_uuid` as the primary identifier with `node_id` sent alongside as a compatibility alias.
+Tracked-ref sync and heartbeat share the same effective VaultCenter URL resolution. Payloads include `vault_node_uuid` as the primary identifier with `node_id` sent alongside as a compatibility alias.
 
 The current operational default for new secret storage is `TEMP / temp`. Use `activate` to promote a TEMP secret to `LOCAL` or `EXTERNAL`.
 

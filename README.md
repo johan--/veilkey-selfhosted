@@ -23,7 +23,7 @@ VeilKey is a self-hosted secret and execution-boundary system for local AI and o
 
 The active runtime model is:
 
-- `services/keycenter`
+- `services/vaultcenter`
   - central control plane
 - `services/localvault`
   - node-local runtime
@@ -47,7 +47,7 @@ For operator entrypoints, the current split is:
 
 The shortest mental model is:
 
-1. `KeyCenter` owns central policy and catalog decisions.
+1. `VaultCenter` owns central policy and catalog decisions.
 2. multiple `LocalVault` nodes run close to workloads, often inside separate hosts or containers.
 3. operators use the CLI and install flows to register, inspect, and update those nodes.
 4. runtime changes are pushed outward by policy, heartbeat, tracked-ref sync, and bulk-apply flows.
@@ -58,7 +58,7 @@ In practice, the shape looks like this:
 operator / cli
       |
       v
-  KeyCenter
+  VaultCenter
       |
       +---- LocalVault (container A)
       +---- LocalVault (container B)
@@ -67,7 +67,7 @@ operator / cli
 
 The important split is:
 
-- `KeyCenter`
+- `VaultCenter`
   - central control plane
   - global catalog and policy decisions
   - central view of nodes, bindings, audit, and bulk operations
@@ -75,7 +75,7 @@ The important split is:
   - node-local runtime
   - ciphertext and config storage
   - heartbeat and runtime identity
-  - local execution under KeyCenter policy
+  - local execution under VaultCenter policy
 
 ## Central Management Model
 
@@ -83,9 +83,9 @@ VeilKey is designed so that keys and runtime state can be managed centrally whil
 
 That includes:
 
-- central registration of LocalVault nodes into KeyCenter
+- central registration of LocalVault nodes into VaultCenter
 - central visibility into vault identity and runtime binding
-- bulk-apply and workflow-style changes pushed from KeyCenter toward multiple LocalVault nodes
+- bulk-apply and workflow-style changes pushed from VaultCenter toward multiple LocalVault nodes
 - planned rotation and rebind flows instead of ad-hoc per-node drift
 
 This is the reason the repository contains both central and node-local components in one self-hosted tree.
@@ -101,14 +101,14 @@ The important runtime concepts are:
 - `vault_hash`
   - stable vault identifier
 - `vault_runtime_hash`
-  - current KeyCenter runtime binding hash
+  - current VaultCenter runtime binding hash
 - `managed_paths`
   - reported runtime ownership context, not the identity itself
 
 Operationally, the flow is:
 
-1. a LocalVault node registers and heartbeats to KeyCenter
-2. KeyCenter can require rotation or rebind
+1. a LocalVault node registers and heartbeats to VaultCenter
+2. VaultCenter can require rotation or rebind
 3. LocalVault applies the new `key_version`
 4. LocalVault retries heartbeat and reports the updated runtime binding
 
@@ -165,13 +165,13 @@ curl http://127.0.0.1:10180/health
 
 Expected result:
 
-- KeyCenter health responds
+- VaultCenter health responds
 - LocalVault health responds
 - the node can heartbeat and appear in the central view after registration
 
 ### What Success Looks Like
 
-KeyCenter starts in a locked state and becomes usable after unlock:
+VaultCenter starts in a locked state and becomes usable after unlock:
 
 ```json
 GET /health
@@ -206,7 +206,7 @@ The operator path is easiest to understand as one control path and one execution
 operator / CLI
       |
       v
-  KeyCenter API
+  VaultCenter API
       |
       +---- policy / catalog / bulk apply
       |
@@ -223,7 +223,7 @@ operator / CLI
 
 The outbound enforcement edge is where `services/proxy` belongs. The intended split is:
 
-- `KeyCenter`
+- `VaultCenter`
   - central policy, registration, audit, bulk operations
 - `LocalVault`
   - node-local runtime, ciphertext/context, execution boundary
@@ -254,16 +254,16 @@ Additional operating notes live in [`docs/OPERATING-MODEL.md`](./docs/OPERATING-
 
 ## Main Use Cases
 
-- run KeyCenter and LocalVault inside your own Proxmox environment
+- run VaultCenter and LocalVault inside your own Proxmox environment
 - keep node-local runtime state under your own control
-- use LocalVault as the node-local runtime paired with a central KeyCenter
+- use LocalVault as the node-local runtime paired with a central VaultCenter
 - stage boundary and bootstrap assets for host companion setups
 
 ## How To Read This Repository
 
 - `installer/`
   - install profiles, wrappers, health checks, and packaging
-- `services/keycenter/`
+- `services/vaultcenter/`
   - central control plane
 - `services/localvault/`
   - node-local runtime
@@ -292,7 +292,7 @@ The practical difference is:
 - explicit Proxmox and LXC install paths
 - local runtime components such as LocalVault instead of a cloud-only model
 - tighter install-to-runtime contract inside one source tree
-- central KeyCenter + multiple LocalVault runtime topology instead of a single hosted vault model
+- central VaultCenter + multiple LocalVault runtime topology instead of a single hosted vault model
 
 ### What It Is Not
 
@@ -313,7 +313,7 @@ The practical difference is:
 |---|---|---|
 | hosted secret SaaS | central hosted control plane | VeilKey keeps runtime and state under your infrastructure |
 | generic password manager | store/retrieve secrets | VeilKey focuses on node registration, runtime identity, and policy-driven execution |
-| file-encryption workflow | encrypt files in repos | VeilKey adds KeyCenter + LocalVault runtime topology and heartbeat/rebind flows |
+| file-encryption workflow | encrypt files in repos | VeilKey adds VaultCenter + LocalVault runtime topology and heartbeat/rebind flows |
 
 ### Current Gaps
 
@@ -322,7 +322,7 @@ Compared with more productized operator stacks such as OpenClaw, the current wea
 - there is no single unified gateway surface in front of all operator and agent traffic
 - session-level context compaction is not a first-class runtime feature yet
 - health exposure is clearer than before, but not fully standardized across every service
-- the proxy role exists, but its boundary is still less immediately legible than the KeyCenter and LocalVault split
+- the proxy role exists, but its boundary is still less immediately legible than the VaultCenter and LocalVault split
 
 That means the runtime model is strong, but the product shell is still catching up.
 

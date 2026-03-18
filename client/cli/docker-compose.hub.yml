@@ -1,7 +1,7 @@
 services:
-  veilkey-keycenter:
-    image: ${VEILKEY_REGISTRY:-ghcr.io}/veilkey/veilkey-keycenter:latest
-    container_name: veilkey-keycenter
+  veilkey-vaultcenter:
+    image: ${VEILKEY_REGISTRY:-ghcr.io}/veilkey/veilkey-vaultcenter:latest
+    container_name: veilkey-vaultcenter
     ports:
       - "${VEILKEY_PORT:-10180}:10180"
     volumes:

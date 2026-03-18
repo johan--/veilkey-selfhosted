@@ -34,25 +34,25 @@ func (s *Server) handlePromote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolve keycenter URL
-	target := s.resolveKeycenterTarget()
+	// Resolve vaultcenter URL
+	target := s.resolveVaultcenterTarget()
 	if target.URL == "" {
-		s.respondError(w, http.StatusServiceUnavailable, "keycenter URL not configured")
+		s.respondError(w, http.StatusServiceUnavailable, "vaultcenter URL not configured")
 		return
 	}
 
-	// Pull plaintext from keycenter
+	// Pull plaintext from vaultcenter
 	resolveURL := target.URL + "/api/resolve/" + url.PathEscape(req.Ref)
 	resp, err := s.httpClient.Get(resolveURL)
 	if err != nil {
-		s.respondError(w, http.StatusBadGateway, "failed to reach keycenter: "+err.Error())
+		s.respondError(w, http.StatusBadGateway, "failed to reach vaultcenter: "+err.Error())
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		s.respondError(w, http.StatusBadGateway, fmt.Sprintf("keycenter resolve failed (%d): %s", resp.StatusCode, string(body)))
+		s.respondError(w, http.StatusBadGateway, fmt.Sprintf("vaultcenter resolve failed (%d): %s", resp.StatusCode, string(body)))
 		return
 	}
 
@@ -60,11 +60,11 @@ func (s *Server) handlePromote(w http.ResponseWriter, r *http.Request) {
 		Value string `json:"value"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&resolveResp); err != nil {
-		s.respondError(w, http.StatusBadGateway, "failed to parse keycenter response")
+		s.respondError(w, http.StatusBadGateway, "failed to parse vaultcenter response")
 		return
 	}
 	if resolveResp.Value == "" {
-		s.respondError(w, http.StatusBadGateway, "keycenter returned empty value")
+		s.respondError(w, http.StatusBadGateway, "vaultcenter returned empty value")
 		return
 	}
 

@@ -3,7 +3,7 @@ import { reactive } from 'vue'
 export const store = reactive({
   lang: 'ko',
   initialized: false,
-  keycenterUrl: '',
+  vaultcenterUrl: '',
   password: '',
   passwordConfirm: '',
   loading: false,
@@ -17,7 +17,7 @@ export async function loadStatus() {
     if (res.ok) {
       store.status = await res.json()
       store.initialized = store.status.initialized
-      store.keycenterUrl = store.status.keycenter_url || ''
+      store.vaultcenterUrl = store.status.vaultcenter_url || ''
     }
   } catch (e) {
     store.error = e.message
@@ -33,7 +33,7 @@ export async function runInit() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         password: store.password,
-        keycenter_url: store.keycenterUrl
+        vaultcenter_url: store.vaultcenterUrl
       })
     })
     if (!res.ok) {
@@ -49,14 +49,14 @@ export async function runInit() {
   }
 }
 
-export async function updateKeycenterUrl() {
+export async function updateVaultcenterUrl() {
   store.loading = true
   store.error = null
   try {
-    const res = await fetch('/api/install/keycenter-url', {
+    const res = await fetch('/api/install/vaultcenter-url', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keycenter_url: store.keycenterUrl })
+      body: JSON.stringify({ vaultcenter_url: store.vaultcenterUrl })
     })
     if (!res.ok) throw new Error(await res.text())
     store.status = await res.json()
