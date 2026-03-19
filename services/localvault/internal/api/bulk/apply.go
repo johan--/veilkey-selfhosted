@@ -73,7 +73,7 @@ func writeAtomically(path string, content []byte) error {
 		return err
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
+	defer func() { _ = os.Remove(tmpName) }()
 	if _, err := tmp.Write(content); err != nil {
 		if closeErr := tmp.Close(); closeErr != nil {
 			return fmt.Errorf("write failed: %w; close also failed: %v", err, closeErr)

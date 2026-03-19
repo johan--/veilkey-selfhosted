@@ -111,7 +111,7 @@ func RunInit() {
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	nodeID := crypto.GenerateUUID()
 	dek, err := crypto.GenerateKey()
