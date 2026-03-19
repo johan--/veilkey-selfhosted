@@ -53,7 +53,7 @@ func RunServer() {
 		trustedIPs = strings.Split(v, ",")
 		log.Printf("Trusted IPs: %v", trustedIPs)
 	} else {
-		log.Println("WARNING: VEILKEY_TRUSTED_IPS not set, sensitive endpoints are unrestricted")
+		log.Fatal("VEILKEY_TRUSTED_IPS is required (comma-separated CIDRs)")
 	}
 
 	server := api.NewServer(database, nil, trustedIPs)

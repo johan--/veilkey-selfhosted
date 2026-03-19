@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -35,7 +36,7 @@ func (h *Handler) handleCreateEmailOTPChallenge(w http.ResponseWriter, r *http.R
 		return
 	}
 	email := strings.TrimSpace(req.Email)
-	if !strings.Contains(email, "@") || !strings.Contains(email[strings.Index(email, "@"):], ".") {
+	if _, err := mail.ParseAddress(email); err != nil {
 		respondErr(w, http.StatusBadRequest, "invalid email format")
 		return
 	}

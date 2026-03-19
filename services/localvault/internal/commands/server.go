@@ -262,7 +262,7 @@ func mustLoadServer() (*api.Server, string, int) {
 		trustedIPs = strings.Split(v, ",")
 		log.Printf("Trusted IPs: %v", trustedIPs)
 	} else {
-		log.Println("WARNING: VEILKEY_TRUSTED_IPS not set, sensitive endpoints are unrestricted")
+		log.Fatal("VEILKEY_TRUSTED_IPS is required (comma-separated CIDRs)")
 	}
 
 	info, err := database.GetNodeInfo()

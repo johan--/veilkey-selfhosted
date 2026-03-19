@@ -16,8 +16,8 @@ import (
 )
 
 const adminSessionCookie = "vk_session"
-const adminSessionDuration = 24 * time.Hour
-const adminSessionIdleDuration = 2 * time.Hour
+const adminSessionDuration = 8 * time.Hour
+const adminSessionIdleDuration = 1 * time.Hour
 
 const loginMaxAttempts = 10
 const loginLockDuration = 15 * time.Minute

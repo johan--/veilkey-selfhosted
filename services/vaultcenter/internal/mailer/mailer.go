@@ -54,7 +54,7 @@ func sendSMTP(from, to, subject, body string) error {
 		}
 	}
 	username := strings.TrimSpace(os.Getenv("VEILKEY_OTP_SMTP_USERNAME"))
-	password := strings.TrimSpace(os.Getenv("VEILKEY_OTP_SMTP_PASSWORD"))
+	password := readSecretEnv("VEILKEY_OTP_SMTP_PASSWORD")
 	startTLSStr := strings.TrimSpace(os.Getenv("VEILKEY_OTP_SMTP_STARTTLS"))
 	startTLS := defaultSTARTTLS
 	if startTLSStr != "" {
@@ -85,6 +85,18 @@ func sendSMTP(from, to, subject, body string) error {
 		return fmt.Errorf("smtp client: %w", err)
 	}
 	return c.DialAndSend(m)
+}
+
+// readSecretEnv reads a secret from KEY_FILE (file path) first, falling back to KEY (direct value).
+func readSecretEnv(key string) string {
+	if path := strings.TrimSpace(os.Getenv(key + "_FILE")); path != "" {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(data))
+	}
+	return strings.TrimSpace(os.Getenv(key))
 }
 
 // sanitizeHeader strips \r and \n to prevent SMTP header injection.
