@@ -35,13 +35,12 @@ func (a *ChainStoreAdapter) UpsertAgent(nodeID, label, vaultHash, vaultName, ip 
 }
 
 func (a *ChainStoreAdapter) RegisterChild(child *chain.ChildRecord) error {
+	// Chain TX only records node identity — DEK delivery is out-of-band via REST.
 	return a.DB.RegisterChild(&Child{
-		NodeID:       child.NodeID,
-		Label:        child.Label,
-		URL:          child.URL,
-		EncryptedDEK: child.EncryptedDEK,
-		Nonce:        child.Nonce,
-		Version:      child.Version,
+		NodeID:  child.NodeID,
+		Label:   child.Label,
+		URL:     child.URL,
+		Version: child.Version,
 	})
 }
 
