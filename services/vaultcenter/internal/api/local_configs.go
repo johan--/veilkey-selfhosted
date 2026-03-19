@@ -34,7 +34,7 @@ func (s *Server) handleListConfigs(w http.ResponseWriter, r *http.Request) {
 
 	result := make([]configResp, 0, len(configs))
 	for _, c := range configs {
-		normScope, normStatus, err := normalizeScopeStatus("VE", c.Scope, c.Status, db.RefScopeLocal)
+		normScope, normStatus, err := normalizeScopeStatus(db.RefFamilyVE, c.Scope, c.Status, db.RefScopeLocal)
 		if err != nil {
 			continue
 		}
@@ -68,7 +68,7 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	normScope, normStatus, err := normalizeScopeStatus("VE", config.Scope, config.Status, db.RefScopeLocal)
+	normScope, normStatus, err := normalizeScopeStatus(db.RefFamilyVE, config.Scope, config.Status, db.RefScopeLocal)
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, "invalid config state")
 		return
