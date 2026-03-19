@@ -95,6 +95,15 @@ func (a *ChainStoreAdapter) SaveConfig(key, value string) error {
 	return a.DB.SaveConfig(key, value)
 }
 
+func (a *ChainStoreAdapter) DeleteConfig(key string) error {
+	return a.DB.DeleteConfig(key)
+}
+
+func (a *ChainStoreAdapter) SetParentURL(parentURL string) error {
+	_, err := a.DB.SetParentURL(parentURL)
+	return err
+}
+
 func (a *ChainStoreAdapter) SaveAuditEvent(event *chain.AuditRecord) error {
 	return a.DB.SaveAuditEvent(&AuditEvent{
 		EventID:             event.EventID,

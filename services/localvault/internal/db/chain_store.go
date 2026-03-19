@@ -74,6 +74,12 @@ func (a *ChainStoreAdapter) SaveConfig(key, value string) error {
 	return a.DB.SaveConfig(key, value)
 }
 
+// DeleteConfig is a no-op on localvault.
+func (a *ChainStoreAdapter) DeleteConfig(_ string) error { return nil }
+
+// SetParentURL is a no-op on localvault.
+func (a *ChainStoreAdapter) SetParentURL(_ string) error { return nil }
+
 // SaveAuditEvent replicates audit events from chain blocks.
 func (a *ChainStoreAdapter) SaveAuditEvent(event *chain.AuditRecord) error {
 	// localvault doesn't have a full AuditEvent table — store as config for now.
