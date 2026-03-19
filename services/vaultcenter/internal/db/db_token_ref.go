@@ -196,6 +196,10 @@ SET ciphertext = ?, version = ?`
 	return d.UpsertSecretCatalogFromTrackedRef(ref)
 }
 
+func (d *DB) UpdateRefAgentHash(canonical, agentHash string) error {
+	return d.conn.Model(&TokenRef{}).Where("ref_canonical = ?", canonical).Update("agent_hash", agentHash).Error
+}
+
 func (d *DB) GetRefByCanonicalAndAgent(canonical, agentHash string) (*TokenRef, error) {
 	var ref TokenRef
 	err := d.conn.First(&ref, "ref_canonical = ? AND agent_hash = ?", canonical, agentHash).Error

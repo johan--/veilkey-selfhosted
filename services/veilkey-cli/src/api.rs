@@ -2,9 +2,26 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+fn build_agent() -> ureq::Agent {
+    let insecure = std::env::var("VEILKEY_TLS_INSECURE").unwrap_or_default() == "1";
+    if insecure {
+        let tls = native_tls::TlsConnector::builder()
+            .danger_accept_invalid_certs(true)
+            .danger_accept_invalid_hostnames(true)
+            .build()
+            .expect("failed to build TLS connector");
+        ureq::AgentBuilder::new()
+            .tls_connector(Arc::new(tls))
+            .build()
+    } else {
+        ureq::Agent::new()
+    }
+}
+
 #[derive(Clone)]
 pub struct VeilKeyClient {
     base_url: String,
+    agent: ureq::Agent,
     cache: Arc<Mutex<HashMap<String, String>>>,
 }
 
@@ -23,6 +40,7 @@ impl VeilKeyClient {
     pub fn new(base_url: &str) -> Self {
         Self {
             base_url: base_url.trim_end_matches('/').to_string(),
+            agent: build_agent(),
             cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -36,7 +54,7 @@ impl VeilKeyClient {
         }
 
         let body = serde_json::json!({ "plaintext": value });
-        let resp = ureq::post(&format!("{}/api/encrypt", self.base_url))
+        let resp = self.agent.post(&format!("{}/api/encrypt", self.base_url))
             .set("Content-Type", "application/json")
             .send_json(&body)
             .map_err(|e| format!("API request failed: {}", e))?;
@@ -75,7 +93,7 @@ impl VeilKeyClient {
             self.base_url,
             urlencoding::encode(r#ref)
         );
-        let resp = ureq::get(&url)
+        let resp = self.agent.get(&url)
             .call()
             .map_err(|e| format!("resolve request failed: {}", e))?;
 
@@ -92,7 +110,7 @@ impl VeilKeyClient {
     #[allow(dead_code)]
     pub fn exact_lookup(&self, plaintext: &str) -> Result<Vec<ExactLookupMatch>, String> {
         let body = serde_json::json!({ "plaintext": plaintext });
-        let resp = ureq::post(&format!("{}/api/lookup/exact", self.base_url))
+        let resp = self.agent.post(&format!("{}/api/lookup/exact", self.base_url))
             .set("Content-Type", "application/json")
             .send_json(&body)
             .map_err(|e| format!("lookup request failed: {}", e))?;
@@ -119,7 +137,7 @@ impl VeilKeyClient {
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(2);
-        ureq::get(&format!("{}/health", self.base_url))
+        self.agent.get(&format!("{}/health", self.base_url))
             .timeout(std::time::Duration::from_secs(secs))
             .call()
             .map(|r| r.status() == 200)
