@@ -2,8 +2,10 @@ package approval
 
 import (
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"math/rand/v2"
 	"net/http"
 	"strings"
@@ -136,7 +138,8 @@ func (h *Handler) handleSubmitEmailOTP(w http.ResponseWriter, r *http.Request) {
 		code := fmt.Sprintf("%06d", rand.IntN(1000000))
 		expiresAt := time.Now().UTC().Add(5 * time.Minute)
 		if _, err := h.db.UpdateEmailOTPCode(token, hashEmailOTPCode(code), expiresAt); err != nil {
-			respondErr(w, http.StatusInternalServerError, err.Error())
+			log.Printf("email-otp: failed to update code: %v", err)
+			respondErr(w, http.StatusInternalServerError, "failed to send code")
 			return
 		}
 		body := fmt.Sprintf("VeilKey one-time code\n\nCode: %s\nExpires in: 300 seconds\n", code)
@@ -153,7 +156,8 @@ func (h *Handler) handleSubmitEmailOTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if _, err := h.db.MarkEmailOTPVerified(token); err != nil {
-			respondErr(w, http.StatusInternalServerError, err.Error())
+			log.Printf("email-otp: failed to mark verified: %v", err)
+			respondErr(w, http.StatusInternalServerError, "verification failed")
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -167,7 +171,7 @@ func validateEmailOTPChallenge(challenge *db.EmailOTPChallenge, code string) boo
 	if challenge == nil || strings.TrimSpace(code) == "" || challenge.CodeExpiresAt == nil || time.Now().UTC().After(*challenge.CodeExpiresAt) {
 		return false
 	}
-	return hashEmailOTPCode(code) == challenge.CodeHash
+	return subtle.ConstantTimeCompare([]byte(hashEmailOTPCode(code)), []byte(challenge.CodeHash)) == 1
 }
 
 func hashEmailOTPCode(code string) string {

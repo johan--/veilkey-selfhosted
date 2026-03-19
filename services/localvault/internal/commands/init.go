@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 
 	"veilkey-localvault/internal/db"
 
+	"github.com/veilkey/veilkey-go-package/agentapi"
 	"github.com/veilkey/veilkey-go-package/cmdutil"
 	"github.com/veilkey/veilkey-go-package/crypto"
 )
@@ -185,10 +185,8 @@ func decodeRegistrationToken(token string) (tokenID, vcURL, label string, err er
 }
 
 func validateTokenRemote(vcURL, tokenID string) error {
-	url := strings.TrimRight(vcURL, "/") + "/api/registration-tokens/" + tokenID + "/validate"
-	client := &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}}
+	url := strings.TrimRight(vcURL, "/") + agentapi.PathRegistrationTokenValidate + tokenID + "/validate"
+	client := &http.Client{Timeout: cmdutil.ParseDurationEnv("VEILKEY_HTTP_TIMEOUT", 10*time.Second)}
 	resp, err := client.Get(url)
 	if err != nil {
 		return fmt.Errorf("cannot reach VaultCenter: %w", err)
