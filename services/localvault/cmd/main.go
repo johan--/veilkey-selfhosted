@@ -514,10 +514,18 @@ func runInit() {
 	// Parse registration token if provided
 	var tokenID, tokenLabel string
 	if tokenStr != "" {
+		var tokenURL string
 		var err error
-		tokenID, centerURL, tokenLabel, err = decodeRegistrationToken(tokenStr)
+		tokenID, tokenURL, tokenLabel, err = decodeRegistrationToken(tokenStr)
 		if err != nil {
 			log.Fatalf("Invalid registration token: %v", err)
+		}
+		// Token URL overrides --center, but --center can fill empty token URL
+		if tokenURL != "" {
+			centerURL = tokenURL
+		}
+		if centerURL == "" {
+			log.Fatal("VaultCenter URL is required. Provide via --center or include in token.")
 		}
 		fmt.Printf("  Token: %s (label: %s)\n", tokenID[:8]+"...", tokenLabel)
 		fmt.Printf("  VaultCenter: %s\n", centerURL)
@@ -659,9 +667,6 @@ func decodeRegistrationToken(token string) (tokenID, vcURL, label string, err er
 	}
 	if payload.TokenID == "" {
 		return "", "", "", fmt.Errorf("token has no ID")
-	}
-	if payload.URL == "" {
-		return "", "", "", fmt.Errorf("token has no VaultCenter URL")
 	}
 	return payload.TokenID, payload.URL, payload.Label, nil
 }

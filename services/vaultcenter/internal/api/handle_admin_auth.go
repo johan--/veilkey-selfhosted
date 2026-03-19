@@ -246,6 +246,17 @@ func (s *Server) resolveAdminSession(r *http.Request) *db.AdminSession {
 	return session
 }
 
+func (s *Server) requireAdminAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		session := s.resolveAdminSession(r)
+		if session == nil {
+			s.respondError(w, http.StatusUnauthorized, "admin session required")
+			return
+		}
+		next(w, r)
+	}
+}
+
 func generateSecureToken(n int) (string, error) {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
