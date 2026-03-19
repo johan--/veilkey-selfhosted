@@ -1,9 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -109,6 +112,54 @@ func (s *Server) handleKeycenterCreateTempRef(w http.ResponseWriter, r *http.Req
 		"name":       req.Name,
 		"expires_at": expiresAt,
 	})
+}
+
+func (s *Server) handleKeycenterPromoteToVault(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Ref       string `json:"ref"`
+		Name      string `json:"name"`
+		VaultHash string `json:"vault_hash"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Ref == "" || req.Name == "" || req.VaultHash == "" {
+		s.respondError(w, http.StatusBadRequest, "ref, name, and vault_hash are required")
+		return
+	}
+
+	agentURL, err := s.FindAgentURL(req.VaultHash)
+	if err != nil {
+		s.respondError(w, http.StatusNotFound, "vault not found: "+err.Error())
+		return
+	}
+
+	// Call LV's /api/promote endpoint
+	promoteBody, _ := json.Marshal(map[string]string{
+		"ref":  req.Ref,
+		"name": req.Name,
+	})
+	resp, err := s.httpClient.Post(
+		strings.TrimRight(agentURL, "/")+"/api/promote",
+		"application/json",
+		bytes.NewReader(promoteBody),
+	)
+	if err != nil {
+		s.respondError(w, http.StatusBadGateway, "failed to reach vault: "+err.Error())
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		s.respondError(w, resp.StatusCode, "promote failed: "+string(body))
+		return
+	}
+
+	var promoteResp map[string]any
+	json.Unmarshal(body, &promoteResp)
+	s.respondJSON(w, http.StatusOK, promoteResp)
 }
 
 func (s *Server) handleKeycenterRevealRef(w http.ResponseWriter, r *http.Request) {

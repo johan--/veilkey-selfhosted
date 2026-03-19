@@ -1759,6 +1759,19 @@ function renderKeycenterPage() {
                             </button>
                         `}
                     </div>
+                    ${state.vaults.length ? `
+                    <div style="margin-top:16px;padding:12px;border:1px solid #444;border-radius:6px">
+                        <div style="font-size:0.8rem;color:#999;margin-bottom:6px">볼트에 저장 (격상)</div>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <select class="form-input" id="promote-vault-select" style="flex:1;font-size:0.8rem">
+                                ${state.vaults.map(v => `<option value="${escapeHTML(v.vault_runtime_hash)}">${escapeHTML(v.display_name || v.vault_name)}</option>`).join('')}
+                            </select>
+                            <button class="btn btn-primary" data-action="promote-to-vault"
+                                data-ref="${escapeHTML(selected.ref_canonical)}"
+                                data-name="${escapeHTML(selected.secret_name || '')}"
+                                style="font-size:0.8rem;white-space:nowrap">저장</button>
+                        </div>
+                    </div>` : ''}
                 </div>
             </div>`;
     } else {
@@ -2866,6 +2879,28 @@ async function handleAction(action, dataset) {
             await selectVaultByKey(dataset.key);
             state.activePage = 'vaults';
             syncRoute(false);
+            render();
+            return;
+        }
+        if (action === 'promote-to-vault') {
+            const vaultSelect = document.getElementById('promote-vault-select');
+            const vaultHash = vaultSelect?.value;
+            const ref = dataset.ref;
+            const name = dataset.name;
+            if (!vaultHash || !ref || !name) {
+                setMessage('warn', 'ref, name, vault를 모두 선택해주세요.');
+                render();
+                return;
+            }
+            try {
+                await request('/api/keycenter/promote', {
+                    method: 'POST',
+                    body: JSON.stringify({ ref, name, vault_hash: vaultHash })
+                });
+                setMessage('ok', `${name} → 볼트에 저장 완료`);
+            } catch (err) {
+                setMessage('error', '격상 실패: ' + err.message);
+            }
             render();
             return;
         }
