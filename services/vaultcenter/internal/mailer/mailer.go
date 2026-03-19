@@ -14,21 +14,21 @@ const defaultSendmailBin = "/usr/sbin/sendmail"
 const defaultSMTPPort = 587
 const defaultSTARTTLS = true
 
-// Send sends a plain-text email using either SMTP (when VEILKEY_OTP_SMTP_HOST is set)
+// Send sends a plain-text email using either SMTP (when VEILKEY_SMTP_HOST is set)
 // or the local sendmail binary.
 func Send(to, subject, body string) error {
-	from := strings.TrimSpace(os.Getenv("VEILKEY_OTP_FROM"))
+	from := strings.TrimSpace(os.Getenv("VEILKEY_SMTP_FROM"))
 	if from == "" {
 		from = "veilkey@localhost"
 	}
-	if strings.TrimSpace(os.Getenv("VEILKEY_OTP_SMTP_HOST")) != "" {
+	if strings.TrimSpace(os.Getenv("VEILKEY_SMTP_HOST")) != "" {
 		return sendSMTP(from, to, subject, body)
 	}
 	return sendSendmail(from, to, subject, body)
 }
 
 func sendSendmail(from, to, subject, body string) error {
-	sendmailBin := os.Getenv("VEILKEY_OTP_SENDMAIL")
+	sendmailBin := os.Getenv("VEILKEY_SENDMAIL")
 	if sendmailBin == "" {
 		sendmailBin = defaultSendmailBin
 	}
@@ -45,17 +45,17 @@ func sendSendmail(from, to, subject, body string) error {
 }
 
 func sendSMTP(from, to, subject, body string) error {
-	host := strings.TrimSpace(os.Getenv("VEILKEY_OTP_SMTP_HOST"))
-	portStr := strings.TrimSpace(os.Getenv("VEILKEY_OTP_SMTP_PORT"))
+	host := strings.TrimSpace(os.Getenv("VEILKEY_SMTP_HOST"))
+	portStr := strings.TrimSpace(os.Getenv("VEILKEY_SMTP_PORT"))
 	port := defaultSMTPPort
 	if portStr != "" {
 		if p, err := strconv.Atoi(portStr); err == nil {
 			port = p
 		}
 	}
-	username := strings.TrimSpace(os.Getenv("VEILKEY_OTP_SMTP_USERNAME"))
-	password := readSecretEnv("VEILKEY_OTP_SMTP_PASSWORD")
-	startTLSStr := strings.TrimSpace(os.Getenv("VEILKEY_OTP_SMTP_STARTTLS"))
+	username := strings.TrimSpace(os.Getenv("VEILKEY_SMTP_USERNAME"))
+	password := readSecretEnv("VEILKEY_SMTP_PASSWORD")
+	startTLSStr := strings.TrimSpace(os.Getenv("VEILKEY_SMTP_STARTTLS"))
 	startTLS := defaultSTARTTLS
 	if startTLSStr != "" {
 		startTLS = strings.ToLower(startTLSStr) != "false"
