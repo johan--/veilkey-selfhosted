@@ -16,6 +16,8 @@ import (
 	"veilkey-vaultcenter/internal/api/hkm"
 	"github.com/veilkey/veilkey-go-package/agentapi"
 	"github.com/veilkey/veilkey-go-package/crypto"
+	"github.com/veilkey/veilkey-go-package/ratelimit"
+	"github.com/veilkey/veilkey-go-package/tlsutil"
 	"veilkey-vaultcenter/internal/db"
 	"veilkey-vaultcenter/internal/httputil"
 )
@@ -53,7 +55,7 @@ type Server struct {
 	trustedCIDRs   []*net.IPNet
 	identity       *NodeIdentity
 	timeouts       Timeouts
-	unlockLimiter  *UnlockRateLimiter
+	unlockLimiter  *ratelimit.UnlockRateLimiter
 	httpClient     *http.Client
 	bulkApplyDir   string
 	updateMu       sync.RWMutex
@@ -144,7 +146,7 @@ func (s *Server) AgentURL(ip string, port int) string {
 	if port == 0 {
 		port = agentapi.DefaultPort
 	}
-	return fmt.Sprintf("%s://%s:%d", AgentScheme(), ip, port)
+	return fmt.Sprintf("%s://%s:%d", httputil.AgentScheme(), ip, port)
 }
 
 // ── bulk.Deps implementation ─────────────────────────────────────────────────
@@ -272,8 +274,8 @@ func NewServer(database *db.DB, kek []byte, trustedIPs []string) *Server {
 		trustedIPs:    ipMap,
 		trustedCIDRs:  cidrs,
 		timeouts:      DefaultTimeouts(),
-		unlockLimiter: NewUnlockRateLimiter(),
-		httpClient:    InitHTTPClientFromEnv(),
+		unlockLimiter: ratelimit.New(),
+		httpClient:    tlsutil.InitHTTPClientFromEnv(),
 		bulkApplyDir:  strings.TrimSpace(os.Getenv("VEILKEY_BULK_APPLY_DIR")),
 	}
 	if database.HasNodeInfo() {
