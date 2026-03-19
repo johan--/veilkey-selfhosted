@@ -34,6 +34,10 @@ func (a *ChainStoreAdapter) UpsertAgent(nodeID, label, vaultHash, vaultName, ip 
 	return a.DB.UpsertAgent(nodeID, label, vaultHash, vaultName, ip, port, secretsCount, configsCount, version, keyVersion)
 }
 
+func (a *ChainStoreAdapter) DeleteAgent(nodeID string) error {
+	return a.DB.DeleteAgentByNodeID(nodeID)
+}
+
 func (a *ChainStoreAdapter) RegisterChild(child *chain.ChildRecord) error {
 	// Chain TX only records node identity — DEK delivery is out-of-band via REST.
 	return a.DB.RegisterChild(&Child{
@@ -42,6 +46,14 @@ func (a *ChainStoreAdapter) RegisterChild(child *chain.ChildRecord) error {
 		URL:     child.URL,
 		Version: child.Version,
 	})
+}
+
+func (a *ChainStoreAdapter) DeleteChild(nodeID string) error {
+	return a.DB.DeleteChild(nodeID)
+}
+
+func (a *ChainStoreAdapter) UpdateChildURL(nodeID, url string) error {
+	return a.DB.UpdateChildURL(nodeID, url)
 }
 
 func (a *ChainStoreAdapter) SaveBinding(binding *chain.BindingRecord) error {
@@ -61,23 +73,13 @@ func (a *ChainStoreAdapter) DeleteBinding(bindingID string) error {
 	return a.DB.DeleteBinding(bindingID)
 }
 
-func (a *ChainStoreAdapter) DeleteAgent(nodeID string) error {
-	return a.DB.DeleteAgentByNodeID(nodeID)
-}
-
-func (a *ChainStoreAdapter) DeleteChild(nodeID string) error {
-	return a.DB.DeleteChild(nodeID)
-}
-
-func (a *ChainStoreAdapter) UpdateChildURL(nodeID, url string) error {
-	return a.DB.UpdateChildURL(nodeID, url)
-}
-
 func (a *ChainStoreAdapter) SaveGlobalFunction(fn *chain.GlobalFunctionRecord) error {
 	return a.DB.SaveGlobalFunction(&GlobalFunction{
-		Name:     fn.Name,
-		Command:  fn.Body,
-		Category: fn.Language,
+		Name:         fn.Name,
+		FunctionHash: fn.FunctionHash,
+		Category:     fn.Category,
+		Command:      fn.Command,
+		VarsJSON:     fn.VarsJSON,
 	})
 }
 
@@ -91,6 +93,15 @@ func (a *ChainStoreAdapter) DeleteBindingsByTarget(bindingType, targetName strin
 
 func (a *ChainStoreAdapter) SaveConfig(key, value string) error {
 	return a.DB.SaveConfig(key, value)
+}
+
+func (a *ChainStoreAdapter) DeleteConfig(key string) error {
+	return a.DB.DeleteConfig(key)
+}
+
+func (a *ChainStoreAdapter) SetParentURL(parentURL string) error {
+	_, err := a.DB.SetParentURL(parentURL)
+	return err
 }
 
 func (a *ChainStoreAdapter) SaveAuditEvent(event *chain.AuditRecord) error {

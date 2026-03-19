@@ -170,7 +170,7 @@ func (s *Server) handleDeleteConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.db.DeleteConfig(key); err != nil {
+	if _, err := s.SubmitTx(r.Context(), chain.TxDeleteConfig, chain.DeleteConfigPayload{Key: key}); err != nil {
 		s.respondError(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -208,7 +208,15 @@ func (s *Server) upsertTrackedRef(ctx context.Context, ref string, version int, 
 		})
 		return txErr
 	}
-	return s.db.SaveRef(parts, "", version, status, agentHash)
+	_, txErr := s.SubmitTx(ctx, chain.TxSaveTokenRef, chain.SaveTokenRefPayload{
+		RefFamily: parts.Family,
+		RefScope:  refs.RefScope(parts.Scope),
+		RefID:     parts.ID,
+		AgentHash: agentHash,
+		Version:   version,
+		Status:    refs.RefStatus(status),
+	})
+	return txErr
 }
 
 // deleteTrackedRef removes a tracked ref directly via the DB.

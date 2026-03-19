@@ -40,13 +40,13 @@ func (a *ChainStoreAdapter) UpsertAgent(_, _, _, _, _ string, _, _, _, _, _ int)
 	return nil
 }
 
+// DeleteAgent is a no-op on localvault.
+func (a *ChainStoreAdapter) DeleteAgent(_ string) error { return nil }
+
 // RegisterChild is a no-op on localvault (identity-only record, no DEK).
 func (a *ChainStoreAdapter) RegisterChild(_ *chain.ChildRecord) error {
 	return nil
 }
-
-// DeleteAgent is a no-op on localvault.
-func (a *ChainStoreAdapter) DeleteAgent(_ string) error { return nil }
 
 // DeleteChild is a no-op on localvault.
 func (a *ChainStoreAdapter) DeleteChild(_ string) error { return nil }
@@ -73,6 +73,12 @@ func (a *ChainStoreAdapter) DeleteGlobalFunction(_ string) error { return nil }
 func (a *ChainStoreAdapter) SaveConfig(key, value string) error {
 	return a.DB.SaveConfig(key, value)
 }
+
+// DeleteConfig is a no-op on localvault.
+func (a *ChainStoreAdapter) DeleteConfig(_ string) error { return nil }
+
+// SetParentURL is a no-op on localvault.
+func (a *ChainStoreAdapter) SetParentURL(_ string) error { return nil }
 
 // SaveAuditEvent replicates audit events from chain blocks.
 func (a *ChainStoreAdapter) SaveAuditEvent(event *chain.AuditRecord) error {

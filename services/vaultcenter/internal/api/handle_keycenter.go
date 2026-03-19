@@ -11,8 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"veilkey-vaultcenter/internal/api/hkm"
+	chain "github.com/veilkey/veilkey-chain"
 	"github.com/veilkey/veilkey-go-package/crypto"
+	"github.com/veilkey/veilkey-go-package/refs"
+	"veilkey-vaultcenter/internal/api/hkm"
 	"veilkey-vaultcenter/internal/db"
 )
 
@@ -101,7 +103,17 @@ func (s *Server) handleKeycenterCreateTempRef(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if err := s.db.SaveRefWithExpiryAndHash(parts, encoded, nodeInfo.Version, db.RefStatusTemp, expiresAt, req.Name, plaintextHash); err != nil {
+	if _, err := s.SubmitTx(r.Context(), chain.TxSaveTokenRef, chain.SaveTokenRefPayload{
+		RefFamily:     parts.Family,
+		RefScope:      refs.RefScope(parts.Scope),
+		RefID:         parts.ID,
+		SecretName:    req.Name,
+		PlaintextHash: plaintextHash,
+		Ciphertext:    encoded,
+		Version:       nodeInfo.Version,
+		Status:        refs.RefStatus(db.RefStatusTemp),
+		ExpiresAt:     &expiresAt,
+	}); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "failed to save temp ref")
 		return
 	}

@@ -3,9 +3,11 @@ package hkm
 import (
 	"log"
 	"net/http"
-	"veilkey-vaultcenter/internal/httputil"
 	"net/url"
 	"strings"
+
+	chain "github.com/veilkey/veilkey-chain"
+	"veilkey-vaultcenter/internal/httputil"
 )
 
 // handleSetParent sets the parent_url in node_info
@@ -27,7 +29,9 @@ func (h *Handler) handleSetParent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.ParentURL = strings.TrimRight(parsed.String(), "/")
-	_, err = h.deps.DB().SetParentURL(req.ParentURL)
+	_, err = h.deps.SubmitTx(r.Context(), chain.TxSetParentURL, chain.SetParentURLPayload{
+		ParentURL: req.ParentURL,
+	})
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
