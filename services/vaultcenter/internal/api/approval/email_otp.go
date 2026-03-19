@@ -4,10 +4,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -187,11 +187,10 @@ func hashEmailOTPCode(code string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// secureRandInt returns a cryptographically random int in [0, max).
+// secureRandInt returns a cryptographically random int in [0, max) with no modular bias.
 func secureRandInt(max int) int {
-	var b [8]byte
-	_, _ = rand.Read(b[:])
-	return int(binary.BigEndian.Uint64(b[:]) % uint64(max))
+	n, _ := rand.Int(rand.Reader, big.NewInt(int64(max)))
+	return int(n.Int64())
 }
 
 func defaultEmailOTPReason(reason string) string {
