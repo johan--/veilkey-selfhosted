@@ -4,17 +4,56 @@ use std::sync::{Arc, Mutex};
 
 fn build_agent() -> ureq::Agent {
     let insecure = std::env::var("VEILKEY_TLS_INSECURE").unwrap_or_default() == "1";
+    let timeout = std::time::Duration::from_secs(10);
     if insecure {
-        let tls = native_tls::TlsConnector::builder()
-            .danger_accept_invalid_certs(true)
-            .danger_accept_invalid_hostnames(true)
-            .build()
-            .expect("failed to build TLS connector");
+        let config = rustls::ClientConfig::builder()
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(NoVerifier))
+            .with_no_client_auth();
         ureq::AgentBuilder::new()
-            .tls_connector(Arc::new(tls))
+            .tls_config(Arc::new(config))
+            .timeout_connect(timeout)
+            .timeout_read(timeout)
+            .timeout_write(timeout)
             .build()
     } else {
-        ureq::Agent::new()
+        ureq::AgentBuilder::new()
+            .timeout_connect(timeout)
+            .timeout_read(timeout)
+            .timeout_write(timeout)
+            .build()
+    }
+}
+
+#[derive(Debug)]
+struct NoVerifier;
+impl rustls::client::danger::ServerCertVerifier for NoVerifier {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &rustls::pki_types::CertificateDer<'_>,
+        _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+        _server_name: &rustls::pki_types::ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: rustls::pki_types::UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+    fn verify_tls12_signature(
+        &self, _: &[u8], _: &rustls::pki_types::CertificateDer<'_>,
+        _: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+    fn verify_tls13_signature(
+        &self, _: &[u8], _: &rustls::pki_types::CertificateDer<'_>,
+        _: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        rustls::crypto::ring::default_provider()
+            .signature_verification_algorithms
+            .supported_schemes()
     }
 }
 
@@ -130,6 +169,85 @@ impl VeilKeyClient {
             }
         }
         Ok(out)
+    }
+
+    /// Fetch all secrets from all vaults and resolve each to build a mask map.
+    /// Returns Vec<(plaintext, vk_ref)> sorted by plaintext length descending.
+    pub fn fetch_all_secrets_mask_map(&self) -> Vec<(String, String)> {
+        let mut mask_map: Vec<(String, String)> = Vec::new();
+
+        // 1. Get vault inventory
+        let vaults_resp = self.agent.get(&format!("{}/api/vault-inventory", self.base_url))
+            .call();
+        let vaults: Vec<serde_json::Value> = match vaults_resp {
+            Ok(resp) => {
+                let data: serde_json::Value = resp.into_json().unwrap_or_default();
+                data["vaults"].as_array().cloned().unwrap_or_default()
+            }
+            Err(_) => return mask_map,
+        };
+
+        // 2. For each vault, get keys and resolve each
+        for vault in &vaults {
+            let hash = match vault["vault_runtime_hash"].as_str() {
+                Some(h) => h,
+                None => continue,
+            };
+            let keys_resp = self.agent.get(&format!("{}/api/vaults/{}/keys", self.base_url, hash))
+                .call();
+            let secrets: Vec<serde_json::Value> = match keys_resp {
+                Ok(resp) => {
+                    let data: serde_json::Value = resp.into_json().unwrap_or_default();
+                    data["secrets"].as_array().cloned().unwrap_or_default()
+                }
+                Err(_) => continue,
+            };
+
+            for secret in &secrets {
+                let name = match secret["name"].as_str() {
+                    Some(n) => n,
+                    None => continue,
+                };
+                // Resolve via vault key endpoint (uses agentDEK)
+                let resolve_resp = self.agent.get(
+                    &format!("{}/api/vaults/{}/keys/{}", self.base_url, hash, urlencoding::encode(name))
+                ).call();
+                if let Ok(resp) = resolve_resp {
+                    let data: serde_json::Value = resp.into_json().unwrap_or_default();
+                    if let (Some(value), Some(token)) = (data["value"].as_str(), data["token"].as_str()) {
+                        if !value.is_empty() {
+                            mask_map.push((value.to_string(), token.to_string()));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Deduplicate: same plaintext → prefer VK:LOCAL over VK:TEMP
+        let mut deduped: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+        for (plaintext, vk_ref) in &mask_map {
+            let existing = deduped.get(plaintext);
+            let prefer_new = match existing {
+                None => true,
+                Some(old) => old.contains(":TEMP:") && vk_ref.contains(":LOCAL:"),
+            };
+            if prefer_new {
+                deduped.insert(plaintext.clone(), vk_ref.clone());
+            }
+        }
+        let mut result: Vec<(String, String)> = deduped.into_iter().collect();
+
+        // Sort by plaintext length descending (longest match first)
+        result.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+
+        // Remove entries where plaintext is a substring of any VK ref
+        // (prevents double-substitution, e.g. plaintext "ea2bfd16" matching inside "VK:LOCAL:ea2bfd16")
+        let all_refs: Vec<String> = result.iter().map(|(_, r)| r.clone()).collect();
+        result.retain(|(plaintext, _)| {
+            !all_refs.iter().any(|r| r.contains(plaintext.as_str()) && r != plaintext)
+        });
+
+        result
     }
 
     pub fn health_check(&self) -> bool {

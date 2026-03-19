@@ -17,6 +17,7 @@ func (h *Handler) handleSaveCipher(w http.ResponseWriter, r *http.Request) {
 		Ciphertext []byte `json:"ciphertext"`
 		Nonce      []byte `json:"nonce"`
 		Version    int    `json:"version"`
+		Scope      string `json:"scope"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "invalid request body")
@@ -46,6 +47,10 @@ func (h *Handler) handleSaveCipher(w http.ResponseWriter, r *http.Request) {
 	action := "created"
 	scope := refScopeTemp
 	status := refStatusTemp
+	if req.Scope == "LOCAL" {
+		scope = refScopeLocal
+		status = refStatusActive
+	}
 	if existing != nil {
 		id = existing.ID
 		ref = existing.Ref
