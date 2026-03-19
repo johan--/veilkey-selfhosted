@@ -180,6 +180,7 @@ func (s *Server) handleKeycenterPromoteToVault(w http.ResponseWriter, r *http.Re
 		"name":       req.Name,
 		"ciphertext": ciphertext,
 		"nonce":      nonce,
+		"scope":      "LOCAL",
 	})
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, "failed to encode request")
