@@ -50,15 +50,15 @@ func (h *Handler) handleAgentGetSecret(w http.ResponseWriter, r *http.Request) {
 	cipher, err := h.fetchAgentCiphertext(agentURL, meta.Ref)
 	if err == nil {
 		plaintext, decErr := crypto.Decrypt(agentDEK, cipher.Ciphertext, cipher.Nonce)
-		if decErr != nil {
-			respondError(w, http.StatusInternalServerError, "decryption failed")
-			return
+		if decErr == nil {
+			plaintextValue = string(plaintext)
 		}
-		plaintextValue = string(plaintext)
-	} else {
+	}
+	// Fallback: ask agent to resolve (uses agent's own DEK)
+	if plaintextValue == "" {
 		resolved, resolveErr := h.fetchAgentResolvedValue(agentURL, meta.Token)
 		if resolveErr != nil {
-			respondError(w, http.StatusBadGateway, "upstream unavailable")
+			respondError(w, http.StatusBadGateway, "failed to resolve secret value")
 			return
 		}
 		plaintextValue = resolved.Value
