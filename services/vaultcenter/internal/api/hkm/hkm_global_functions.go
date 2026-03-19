@@ -32,8 +32,11 @@ func (h *Handler) handleGlobalFunctions(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		if _, err := h.deps.SubmitTx(r.Context(), chain.TxSaveGlobalFunction, chain.SaveGlobalFunctionPayload{
-			Name: req.Name,
-			Body: req.Command,
+			Name:         req.Name,
+			FunctionHash: req.FunctionHash,
+			Category:     req.Category,
+			Command:      req.Command,
+			VarsJSON:     req.VarsJSON,
 		}); err != nil {
 			respondError(w, http.StatusBadRequest, err.Error())
 			return
