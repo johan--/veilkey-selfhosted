@@ -64,15 +64,19 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Record child registration on chain (identity only — no key material)
 	if _, err := h.deps.SubmitTx(r.Context(), chain.TxRegisterChild, chain.RegisterChildPayload{
-		NodeID:       nodeID,
-		Label:        req.Label,
-		URL:          req.URL,
-		EncryptedDEK: encryptedChildDEK,
-		Nonce:        childNonce,
-		Version:      1,
+		NodeID:  nodeID,
+		Label:   req.Label,
+		URL:     req.URL,
+		Version: 1,
 	}); err != nil {
 		respondError(w, http.StatusInternalServerError, "failed to register child: "+err.Error())
+		return
+	}
+	// DEK delivery via direct DB write (never on chain)
+	if err := h.deps.DB().UpdateChildDEK(nodeID, encryptedChildDEK, childNonce, 1); err != nil {
+		respondError(w, http.StatusInternalServerError, "failed to save child DEK: "+err.Error())
 		return
 	}
 

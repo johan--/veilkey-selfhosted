@@ -40,7 +40,7 @@ func (a *ChainStoreAdapter) UpsertAgent(_, _, _, _, _ string, _, _, _, _, _ int)
 	return nil
 }
 
-// RegisterChild is a no-op on localvault.
+// RegisterChild is a no-op on localvault (identity-only record, no DEK).
 func (a *ChainStoreAdapter) RegisterChild(_ *chain.ChildRecord) error {
 	return nil
 }
