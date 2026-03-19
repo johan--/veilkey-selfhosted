@@ -136,10 +136,14 @@ func (s *Server) handleKeycenterPromoteToVault(w http.ResponseWriter, r *http.Re
 	}
 
 	// Call LV's /api/promote endpoint
-	promoteBody, _ := json.Marshal(map[string]string{
+	promoteBody, err := json.Marshal(map[string]string{
 		"ref":  req.Ref,
 		"name": req.Name,
 	})
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to encode promote request")
+		return
+	}
 	resp, err := s.httpClient.Post(
 		strings.TrimRight(agentURL, "/")+"/api/promote",
 		"application/json",
@@ -151,14 +155,21 @@ func (s *Server) handleKeycenterPromoteToVault(w http.ResponseWriter, r *http.Re
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		s.respondError(w, http.StatusBadGateway, "failed to read vault response")
+		return
+	}
 	if resp.StatusCode != http.StatusOK {
 		s.respondError(w, resp.StatusCode, "promote failed: "+string(body))
 		return
 	}
 
 	var promoteResp map[string]any
-	json.Unmarshal(body, &promoteResp)
+	if err := json.Unmarshal(body, &promoteResp); err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to parse vault response")
+		return
+	}
 	s.respondJSON(w, http.StatusOK, promoteResp)
 }
 

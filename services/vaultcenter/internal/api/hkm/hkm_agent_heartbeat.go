@@ -169,18 +169,18 @@ func (h *Handler) handleAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		agent = nil
 	}
 
-	// New agent registration requires a valid registration token
+	// New agent registration requires a valid registration token — consume atomically to prevent race
 	if agent == nil {
 		if req.RegistrationToken == "" {
 			respondError(w, http.StatusForbidden, "registration_token is required for first-time agent registration")
 			return
 		}
-		regToken, tokenErr := h.deps.DB().ValidateRegistrationToken(req.RegistrationToken)
-		if tokenErr != nil || regToken == nil {
-			respondError(w, http.StatusForbidden, "invalid or expired registration token")
+		// Consume atomically: WHERE status='active' AND expires_at > now
+		// If another agent already consumed it, this returns error
+		if err := h.deps.DB().ConsumeRegistrationToken(req.RegistrationToken, nodeID); err != nil {
+			respondError(w, http.StatusForbidden, "invalid, expired, or already used registration token")
 			return
 		}
-		// Token will be consumed after successful registration (below)
 	}
 
 	if err := h.deps.DB().UpsertAgent(nodeID, req.Label, req.VaultHash, req.VaultName, req.IP, req.Port, req.SecretsCount, req.ConfigsCount, req.Version, req.KeyVersion); err != nil {
@@ -239,13 +239,6 @@ func (h *Handler) handleAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("agent: assigned hash=%s to %s (%s)", agentHash, nodeID, req.Label)
-
-		// Consume the registration token (one-time use)
-		if req.RegistrationToken != "" {
-			if err := h.deps.DB().ConsumeRegistrationToken(req.RegistrationToken, nodeID); err != nil {
-				log.Printf("agent: failed to consume registration token %s: %v", req.RegistrationToken, err)
-			}
-		}
 
 		resp := map[string]interface{}{
 			"status":        "registered",

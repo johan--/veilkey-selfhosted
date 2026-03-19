@@ -1,6 +1,9 @@
 package db
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 func (d *DB) SaveRegistrationToken(token *RegistrationToken) error {
 	return d.conn.Create(token).Error
@@ -16,13 +19,20 @@ func (d *DB) GetRegistrationToken(tokenID string) (*RegistrationToken, error) {
 
 func (d *DB) ConsumeRegistrationToken(tokenID, usedByNode string) error {
 	now := time.Now().UTC()
-	return d.conn.Model(&RegistrationToken{}).
-		Where("token_id = ? AND status = ?", tokenID, "active").
+	result := d.conn.Model(&RegistrationToken{}).
+		Where("token_id = ? AND status = ? AND expires_at > ?", tokenID, "active", now).
 		Updates(map[string]interface{}{
 			"status":       "used",
 			"used_by_node": usedByNode,
 			"used_at":      &now,
-		}).Error
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("token not found, expired, or already used")
+	}
+	return nil
 }
 
 func (d *DB) ListRegistrationTokens(limit, offset int) ([]RegistrationToken, int64, error) {
