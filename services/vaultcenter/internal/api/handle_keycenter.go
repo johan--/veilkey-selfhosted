@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 
 	"strings"
@@ -211,6 +212,29 @@ func (s *Server) handleKeycenterPromoteToVault(w http.ResponseWriter, r *http.Re
 		s.respondError(w, http.StatusInternalServerError, "failed to parse vault response")
 		return
 	}
+
+	// 5. Register tracked ref so /api/resolve/{ref} works
+	if refID, ok := cipherResp["ref"].(string); ok && refID != "" {
+		_, txErr := s.SubmitTx(r.Context(), chain.TxSaveTokenRef, chain.SaveTokenRefPayload{
+			RefFamily:  "VK",
+			RefScope:   "LOCAL",
+			RefID:      refID,
+			SecretName: req.Name,
+			AgentHash:  agent.AgentHash,
+			Version:    agent.KeyVersion,
+			Status:     "active",
+		})
+		if txErr != nil {
+			log.Printf("promote: failed to register tracked ref: %v", txErr)
+		}
+		// Chain executor doesn't pass AgentHash through Store interface,
+		// so update it directly after TX commits.
+		canonical := db.RefParts{Family: db.RefFamilyVK, Scope: db.RefScopeLocal, ID: refID}.Canonical()
+		if err := s.db.UpdateRefAgentHash(canonical, agent.AgentHash); err != nil {
+			log.Printf("promote: failed to set agent hash: %v", err)
+		}
+	}
+
 	s.respondJSON(w, http.StatusOK, cipherResp)
 }
 
