@@ -5,33 +5,33 @@
 ```bash
 git clone https://github.com/veilkey/veilkey-selfhosted.git
 cd veilkey-selfhosted
-bash install/macos/install-all.sh
+bash install/macos/install-veil-all.sh
 ```
 
-This runs `install-server.sh` + `install-cli.sh` sequentially.
+This runs `install-veil-server.sh` + `install-veil-cli.sh` sequentially.
 
 To install separately:
 
 ```bash
-bash install/macos/install-server.sh   # Docker Compose (VaultCenter + LocalVault)
-bash install/macos/install-cli.sh      # veil CLI (Rust build + npm + codesign)
+bash install/macos/install-veil-server.sh   # Docker Compose (VaultCenter + LocalVault)
+bash install/macos/install-veil-cli.sh      # veil CLI (Rust build + npm + codesign)
 ```
 
 ## Bootstrap (no clone needed)
 
 ```bash
-curl -sL .../install-all-bootstrap.sh | bash
+curl -sL .../install-veil-all-bootstrap.sh | bash
 ```
 
-Clones the repo automatically, then runs `install-all.sh`.
+Clones the repo automatically, then runs `install-veil-all.sh`.
 
 ## Prerequisites
 
 | Tool | Install | Required for |
 |------|---------|-------------|
-| Docker Desktop | [docker.com](https://docs.docker.com/desktop/install/mac-install/) | `install-server.sh` |
-| Node.js / npm | `brew install node` | `install-cli.sh` |
-| Rust / cargo | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` | `install-cli.sh` |
+| Docker Desktop | [docker.com](https://docs.docker.com/desktop/install/mac-install/) | `install-veil-server.sh` |
+| Node.js / npm | `brew install node` | `install-veil-cli.sh` |
+| Rust / cargo | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` | `install-veil-cli.sh` |
 
 ## After install
 
@@ -54,7 +54,7 @@ docker compose up --build -d       # Docker rebuild
 
 ```bash
 cd veilkey-selfhosted
-bash install/macos/uninstall.sh
+bash install/macos/uninstall-veil.sh
 ```
 
 ## Add a standalone LocalVault

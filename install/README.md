@@ -4,9 +4,9 @@ Platform-specific installation guides for VeilKey Self-Hosted.
 
 ## Platforms
 
-| Platform | Script | Guide |
-|----------|--------|-------|
-| [macOS](./macos/) | `install-all.sh` / `install-server.sh` / `install-cli.sh` | [install-all.md](./macos/install-all.md) |
+| Platform | Scripts | Guide |
+|----------|---------|-------|
+| [macOS](./macos/) | `install-veil-all.sh` / `install-veil-server.sh` / `install-veil-cli.sh` | [install-veil-all.md](./macos/install-veil-all.md) |
 | [Proxmox LXC Debian](./proxmox-lxc-debian/) | `install-veilkey.sh` | [install-veilkey.md](./proxmox-lxc-debian/install-veilkey.md) |
 
 ## Common

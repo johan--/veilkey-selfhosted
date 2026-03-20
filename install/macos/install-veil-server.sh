@@ -5,7 +5,7 @@ set -euo pipefail
 # Starts VaultCenter + LocalVault via Docker Compose.
 #
 # Usage:
-#   bash install/macos/install-server.sh
+#   bash install/macos/install-veil-server.sh
 #
 # ⚠️  이 스크립트의 실행으로 발생하는 모든 결과에 대한
 #     귀책사유는 실행자 본인에게 있습니다.
@@ -44,7 +44,7 @@ if [ "$OWN_DOCKER" = false ] && lsof -i ":$PORT" -sTCP:LISTEN >/dev/null 2>&1; t
     echo ""
     echo "⚠️  포트 $PORT 가 이미 사용 중입니다."
     echo "   기존 인스턴스: cd <경로> && docker compose down"
-    echo "   다른 포트:     VEILKEY_URL=https://localhost:$((PORT+1)) bash install/macos/install-server.sh"
+    echo "   다른 포트:     VEILKEY_URL=https://localhost:$((PORT+1)) bash install/macos/install-veil-server.sh"
     echo "   Docker 건너뜁니다."
 else
     [ ! -f "$REPO_ROOT/.env" ] && cp "$REPO_ROOT/.env.example" "$REPO_ROOT/.env" 2>/dev/null || true
