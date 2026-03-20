@@ -18,6 +18,8 @@ The script creates a privileged LXC container, installs all dependencies, and st
 
 For manual step-by-step installation, continue below.
 
+> **Note:** Commands below use `localhost:11181` and `localhost:11180` as default ports. If you changed `VAULTCENTER_HOST_PORT` or `LOCALVAULT_HOST_PORT` in `.env`, adjust accordingly.
+
 ---
 
 ## Requirements

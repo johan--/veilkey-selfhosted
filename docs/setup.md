@@ -4,6 +4,20 @@ Installation complete? Follow these steps to initialize VeilKey.
 
 This guide is common to all platforms. For platform-specific installation, see [install/](../install/).
 
+## Conventions
+
+This guide uses the following placeholders:
+
+| Placeholder | Default | Description |
+|-------------|---------|-------------|
+| `<vc_url>` | `<vc_url>` | VaultCenter URL |
+| `<lv_url>` | `<lv_url>` | LocalVault URL |
+| `<master_password>` | - | Master password (KEK derivation) |
+| `<admin_password>` | - | Admin password (web UI login) |
+| `<agent_hash>` | - | Vault agent hash (from `/api/agents`) |
+
+Ports depend on your `.env` settings (`VAULTCENTER_HOST_PORT`, `LOCALVAULT_HOST_PORT`).
+
 ## 1. VaultCenter Setup
 
 ### Web UI
@@ -20,12 +34,12 @@ If you don't have browser access (e.g. SSH-only server):
 
 ```bash
 # Initial setup (first run only)
-curl -sk -X POST https://localhost:11181/api/setup/init \
+curl -sk -X POST <vc_url>/api/setup/init \
   -H 'Content-Type: application/json' \
   -d '{"password":"<master_password>","admin_password":"<admin_password>"}'
 
 # Unlock after restart
-curl -sk -X POST https://localhost:11181/api/unlock \
+curl -sk -X POST <vc_url>/api/unlock \
   -H 'Content-Type: application/json' \
   -d '{"password":"<master_password>"}'
 ```
@@ -74,7 +88,7 @@ docker compose exec localvault sh -c \
 docker compose restart localvault
 
 # Wait a few seconds, then unlock
-curl -sk -X POST https://localhost:11180/api/unlock \
+curl -sk -X POST <lv_url>/api/unlock \
   -H 'Content-Type: application/json' \
   -d '{"password":"<master_password>"}'
 ```
@@ -83,8 +97,8 @@ curl -sk -X POST https://localhost:11180/api/unlock \
 
 ```bash
 # Both should return {"status":"ok"}
-curl -sk https://localhost:11181/health   # VaultCenter
-curl -sk https://localhost:11180/health   # LocalVault
+curl -sk <vc_url>/health   # VaultCenter
+curl -sk <lv_url>/health   # LocalVault
 ```
 
 ## 3. Store Secrets
@@ -101,24 +115,24 @@ In the keycenter UI:
 
 ```bash
 # Login as admin (get session cookie)
-curl -sk -X POST https://localhost:11181/api/admin/login \
+curl -sk -X POST <vc_url>/api/admin/login \
   -H 'Content-Type: application/json' \
   -d '{"password":"<admin_password>"}' \
   -c /tmp/vk-cookies.txt
 
 # Create temp ref
-curl -sk -X POST https://localhost:11181/api/keycenter/temp-refs \
+curl -sk -X POST <vc_url>/api/keycenter/temp-refs \
   -H 'Content-Type: application/json' \
   -b /tmp/vk-cookies.txt \
   -d '{"name":"MY_SECRET","value":"actual-secret-value"}'
 # Returns: {"ref":"VK:TEMP:xxxxxxxx", ...}
 
 # List agents to get vault_hash
-curl -sk https://localhost:11181/api/agents
+curl -sk <vc_url>/api/agents
 # Returns: {"agents":[{"agent_hash":"xxxxxxxx", ...}]}
 
 # Promote to vault (use full VK:TEMP:xxx ref and agent_hash as vault_hash)
-curl -sk -X POST https://localhost:11181/api/keycenter/promote \
+curl -sk -X POST <vc_url>/api/keycenter/promote \
   -H 'Content-Type: application/json' \
   -b /tmp/vk-cookies.txt \
   -d '{"ref":"VK:TEMP:xxxxxxxx","name":"MY_SECRET","vault_hash":"<agent_hash>"}'

@@ -4,7 +4,7 @@ VaultCenter uses auto-generated self-signed TLS certificates. On macOS, this cau
 
 ## Browser: HTTPS certificate warning
 
-When you open `https://localhost:11181`, your browser will show a security warning.
+When you open the VaultCenter URL (default `https://localhost:11181`), your browser will show a security warning.
 
 ### Chrome
 
@@ -83,7 +83,7 @@ Set `VEILKEY_TLS_INSECURE=1` or trust the cert (see above).
 
 Binary not codesigned. Run the codesign command above.
 
-### `https://localhost:11181` shows nothing / connection refused
+### VaultCenter URL shows nothing / connection refused
 
 ```bash
 # Check if services are running
@@ -92,6 +92,6 @@ docker compose ps
 # Check VaultCenter logs
 docker compose logs vaultcenter
 
-# Verify health
-curl -sk https://localhost:11181/health
+# Verify health (adjust port if changed in .env)
+curl -sk https://localhost:${VAULTCENTER_HOST_PORT:-11181}/health
 ```
