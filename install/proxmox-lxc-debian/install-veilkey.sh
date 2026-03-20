@@ -44,7 +44,7 @@ if [[ -z "${CT_IP:-}" ]] || [[ -z "${CT_GW:-}" ]]; then
     echo "ERROR: CT_IP and CT_GW are required."
     echo ""
     echo "Usage:"
-    echo "  CT_IP=<ip>/<mask> CT_GW=<gateway> bash install/proxmox-lxc-debian/install-veilkey.sh"
+    echo "  CT_IP=<IP>/<MASK> CT_GW=<GATEWAY> bash install/proxmox-lxc-debian/install-veilkey.sh"
     exit 1
 fi
 
@@ -165,12 +165,12 @@ if echo "$HEALTH" | grep -q '"status"'; then
     echo "  1. Initial setup (headless):"
     echo "     pct exec $CTID -- bash -c \"curl -sk -X POST https://localhost:${VC_PORT}/api/setup/init \\"
     echo "       -H 'Content-Type: application/json' \\"
-    echo "       -d '{\\\"password\\\":\\\"<master_password>\\\",\\\"admin_password\\\":\\\"<admin_password>\\\"}'\""
+    echo "       -d '{\\\"password\\\":\\\"<MASTER_PASSWORD>\\\",\\\"admin_password\\\":\\\"<ADMIN_PASSWORD>\\\"}'\""
     echo ""
     echo "  2. Or unlock (if already initialized):"
     echo "     pct exec $CTID -- bash -c \"curl -sk -X POST https://localhost:${VC_PORT}/api/unlock \\"
     echo "       -H 'Content-Type: application/json' \\"
-    echo "       -d '{\\\"password\\\":\\\"<master_password>\\\"}'\""
+    echo "       -d '{\\\"password\\\":\\\"<MASTER_PASSWORD>\\\"}'\""
     echo ""
     echo "  3. See docs/setup.md for LocalVault registration"
     echo ""
