@@ -39,18 +39,20 @@ jobs:
       - name: Start VeilKey services
         run: |
           cp .env.example .env
-          # Auto-complete setup so we don't need manual init
           echo "VAULTCENTER_AUTO_COMPLETE_INSTALL_FLOW=1" >> .env
-          docker compose up -d --build
-          echo "Waiting for VaultCenter to be healthy..."
-          for i in $(seq 1 60); do
+          # Start vaultcenter first, wait for health, then start dependents
+          docker compose up -d --build --no-deps vaultcenter
+          echo "Waiting for VaultCenter..."
+          for i in $(seq 1 90); do
             STATUS=$(curl -sk https://localhost:11181/health 2>/dev/null | grep -o '"status":"[^"]*"' || true)
             echo "  [$i] $STATUS"
-            if echo "$STATUS" | grep -qE '"locked"|"ok"'; then
+            if echo "$STATUS" | grep -qE '"locked"|"ok"|"setup"'; then
               break
             fi
-            sleep 5
+            sleep 3
           done
+          # Now start localvault and veil (depends_on satisfied)
+          docker compose up -d --build localvault veil
 
       - name: Unlock VaultCenter
         run: |
