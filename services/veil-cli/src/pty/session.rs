@@ -80,7 +80,7 @@ pub fn run(args: &[String], api_url: &str, _log_path: &str, patterns_file: Optio
             child_env.push((key, resolved));
         }
     }
-    mask_map.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+    crate::api::enrich_mask_map(&mut mask_map);
 
     // Open PTY
     let (master_fd, slave_fd): (RawFd, RawFd) = unsafe {
