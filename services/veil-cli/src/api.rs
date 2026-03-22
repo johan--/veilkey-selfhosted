@@ -89,6 +89,15 @@ impl VeilKeyClient {
         }
     }
 
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
+    #[allow(clippy::result_large_err)]
+    pub fn raw_get(&self, url: &str) -> Result<ureq::Response, ureq::Error> {
+        self.agent.get(url).call()
+    }
+
     pub fn issue(&self, value: &str) -> Result<String, String> {
         let value = value.trim_end_matches(['\r', '\n']);
         {

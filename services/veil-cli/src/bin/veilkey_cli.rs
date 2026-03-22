@@ -850,9 +850,64 @@ mod pty_wrap {
                     }
                 }
 
-                let mask_map = Arc::new(mask_map);
+                let mask_map = Arc::new(std::sync::RwLock::new(mask_map));
                 let patterns = Arc::new(patterns);
                 let client = Arc::new(client);
+
+                // Background mask_map sync thread — long polls /api/mask-map for changes
+                {
+                    let sync_map = mask_map.clone();
+                    let sync_client = client.clone();
+                    std::thread::spawn(move || {
+                        let mut version: u64 = 0;
+                        loop {
+                            let url = format!(
+                                "{}/api/mask-map?version={}&wait=30",
+                                sync_client.base_url(),
+                                version
+                            );
+                            match sync_client.raw_get(&url) {
+                                Ok(resp) => {
+                                    let data: serde_json::Value =
+                                        resp.into_json().unwrap_or_default();
+                                    let new_version = data["version"].as_u64().unwrap_or(version);
+                                    let changed = data["changed"].as_bool().unwrap_or(false);
+                                    if changed && new_version > version {
+                                        if let Some(entries) = data["entries"].as_array() {
+                                            let mut new_map: Vec<(String, String)> = Vec::new();
+                                            for e in entries {
+                                                let r = e["ref"].as_str().unwrap_or_default();
+                                                let v = e["value"].as_str().unwrap_or_default();
+                                                let trimmed = v.trim_end_matches(['\r', '\n']);
+                                                if !trimmed.is_empty() && !r.is_empty() {
+                                                    new_map
+                                                        .push((trimmed.to_string(), r.to_string()));
+                                                }
+                                            }
+                                            new_map.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+                                            if let Ok(mut map) = sync_map.write() {
+                                                *map = new_map;
+                                                eprintln!(
+                                                    "[veilkey] mask_map synced: {} secret(s) (v{})",
+                                                    map.len(),
+                                                    new_version
+                                                );
+                                            }
+                                        }
+                                        version = new_version;
+                                    } else {
+                                        version = new_version;
+                                    }
+                                }
+                                Err(_) => {
+                                    // API unreachable — keep current mask_map, retry after delay
+                                    std::thread::sleep(Duration::from_secs(10));
+                                }
+                            }
+                        }
+                    });
+                }
+
                 // Track recent stdin input to skip echo-back masking
                 let recent_input = Arc::new(Mutex::new(String::new()));
 
@@ -892,7 +947,13 @@ mod pty_wrap {
                 let stdout_fd = io::stdout().as_raw_fd();
                 let mut partial_buf: Vec<u8> = Vec::new();
 
-                let max_secret_len = mask.iter().map(|(p, _)| p.len()).max().unwrap_or(0);
+                let max_secret_len = mask
+                    .read()
+                    .unwrap()
+                    .iter()
+                    .map(|(p, _)| p.len())
+                    .max()
+                    .unwrap_or(0);
                 // overlap_buf holds the tail of the last flushed output (up to max_secret_len bytes).
                 // It is prepended to the next batch so cross-boundary secrets are matched.
                 let mut overlap_buf: Vec<u8> = Vec::new();
@@ -919,7 +980,8 @@ mod pty_wrap {
                         let saved_overlap_len = combined.len().min(max_secret_len);
 
                         let ri = input_ref.lock().unwrap().clone();
-                        let masked = mask_output(&combined, &mask, &patterns, &client, &ri);
+                        let masked =
+                            mask_output(&combined, &mask.read().unwrap(), &patterns, &client, &ri);
 
                         // Only write the NEW portion (skip the overlap that was already written)
                         if masked.len() > overlap_len {
@@ -950,10 +1012,11 @@ mod pty_wrap {
                                     // Check if partial_buf ends with prefix of any known secret
                                     // (removed the >8 length gate — all secrets now checked)
                                     let buf_str = String::from_utf8_lossy(&partial_buf);
-                                    let has_partial_secret = mask.iter().any(|(plaintext, _)| {
-                                        let pl = plaintext.as_str();
-                                        (4..pl.len()).any(|i| buf_str.ends_with(&pl[..i]))
-                                    });
+                                    let has_partial_secret =
+                                        mask.read().unwrap().iter().any(|(plaintext, _)| {
+                                            let pl = plaintext.as_str();
+                                            (4..pl.len()).any(|i| buf_str.ends_with(&pl[..i]))
+                                        });
                                     if has_partial_secret {
                                         // Wait for the rest of the secret
                                         std::thread::sleep(Duration::from_millis(lookahead_ms));
@@ -971,8 +1034,13 @@ mod pty_wrap {
                                     let saved_overlap_len = combined.len().min(max_secret_len);
 
                                     let ri = input_ref.lock().unwrap().clone();
-                                    let masked =
-                                        mask_output(&combined, &mask, &patterns, &client, &ri);
+                                    let masked = mask_output(
+                                        &combined,
+                                        &mask.read().unwrap(),
+                                        &patterns,
+                                        &client,
+                                        &ri,
+                                    );
                                     if masked.len() > prev_overlap_len {
                                         let new_output = &masked[prev_overlap_len..];
                                         libc::write(
@@ -999,7 +1067,8 @@ mod pty_wrap {
                     let prev_overlap_len = combined.len();
                     combined.extend_from_slice(&partial_buf);
                     let ri = input_ref.lock().unwrap().clone();
-                    let masked = mask_output(&combined, &mask, &patterns, &client, &ri);
+                    let masked =
+                        mask_output(&combined, &mask.read().unwrap(), &patterns, &client, &ri);
                     if masked.len() > prev_overlap_len {
                         let new_output = &masked[prev_overlap_len..];
                         unsafe {
@@ -1028,8 +1097,10 @@ mod pty_wrap {
                     1
                 };
 
-                if !mask.is_empty() {
-                    eprintln!("\n[veilkey] {} secret(s) masked in session", mask.len());
+                if let Ok(m) = mask.read() {
+                    if !m.is_empty() {
+                        eprintln!("\n[veilkey] {} secret(s) masked in session", m.len());
+                    }
                 }
                 std::process::exit(exit_code);
             }
