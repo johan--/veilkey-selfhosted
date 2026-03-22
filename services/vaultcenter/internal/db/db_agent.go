@@ -218,6 +218,17 @@ func (d *DB) UnarchiveAgent(nodeID string) error {
 	return d.conn.Model(&Agent{}).Where("node_id = ?", nodeID).Update("archived_at", nil).Error
 }
 
+// AutoArchiveStaleAgents archives agents with no heartbeat for the given duration.
+// Returns the number of agents archived.
+func (d *DB) AutoArchiveStaleAgents(staleAfter time.Duration) (int64, error) {
+	cutoff := time.Now().UTC().Add(-staleAfter)
+	now := time.Now().UTC()
+	result := d.conn.Model(&Agent{}).
+		Where("archived_at IS NULL AND last_seen < ?", cutoff).
+		Update("archived_at", &now)
+	return result.RowsAffected, result.Error
+}
+
 func (d *DB) GetAgentByNodeID(nodeID string) (*Agent, error) {
 	return dbFirst[Agent](d, "agent "+nodeID+" not found", "node_id = ?", nodeID)
 }

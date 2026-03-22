@@ -27,6 +27,12 @@ func StartTempRefGC(database *db.DB, interval time.Duration, stop <-chan struct{
 			} else if regCount > 0 {
 				log.Printf("registration token GC: expired %d tokens", regCount)
 			}
+			archiveCount, archiveErr := database.AutoArchiveStaleAgents(7 * 24 * time.Hour)
+			if archiveErr != nil {
+				log.Printf("agent auto-archive error: %v", archiveErr)
+			} else if archiveCount > 0 {
+				log.Printf("agent auto-archive: archived %d stale agents (no heartbeat for 7 days)", archiveCount)
+			}
 		}
 	}
 }
