@@ -181,12 +181,10 @@ impl<'a> SecretDetector<'a> {
         let has_context = self.has_sensitive_context(line);
 
         for pat in &self.config.patterns {
-            for m in pat.regex.find_iter(line) {
-                let full_match = m.as_str().to_string();
+            for caps in pat.regex.captures_iter(line) {
+                let full_match = caps.get(0).unwrap().as_str().to_string();
                 let value = if pat.group > 0 {
-                    pat.regex
-                        .captures(m.as_str())
-                        .and_then(|c| c.get(pat.group))
+                    caps.get(pat.group)
                         .map(|g| g.as_str().to_string())
                         .unwrap_or_else(|| full_match.clone())
                 } else {

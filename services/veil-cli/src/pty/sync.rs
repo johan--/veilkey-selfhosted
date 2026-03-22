@@ -11,13 +11,15 @@ pub fn spawn_mask_map_sync(
 ) {
     std::thread::spawn(move || {
         let mut version: u64 = 0;
+        // Long poll timeout must exceed server wait (30s) + margin
+        let poll_timeout = Duration::from_secs(45);
         loop {
             let url = format!(
                 "{}/api/mask-map?version={}&wait=30",
                 client.base_url(),
                 version
             );
-            match client.raw_get(&url) {
+            match client.raw_get_with_timeout(&url, poll_timeout) {
                 Ok(resp) => {
                     let data: serde_json::Value = resp.into_json().unwrap_or_default();
                     let new_version = data["version"].as_u64().unwrap_or(version);

@@ -4,6 +4,7 @@ use nix::unistd::{execvp, fork, ForkResult};
 use std::ffi::CString;
 use std::io;
 use std::os::fd::{AsRawFd, RawFd};
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
@@ -14,14 +15,15 @@ use crate::state::state_dir;
 use super::masker;
 use super::sync as mask_sync;
 
-static mut MASTER_FD: RawFd = -1;
+static MASTER_FD: AtomicI32 = AtomicI32::new(-1);
 
 extern "C" fn handle_sigwinch(_: libc::c_int) {
-    unsafe {
-        if MASTER_FD >= 0 {
+    let fd = MASTER_FD.load(Ordering::Relaxed);
+    if fd >= 0 {
+        unsafe {
             let mut ws: libc::winsize = std::mem::zeroed();
             libc::ioctl(0, libc::TIOCGWINSZ, &mut ws);
-            libc::ioctl(MASTER_FD, libc::TIOCSWINSZ, &ws);
+            libc::ioctl(fd, libc::TIOCSWINSZ, &ws);
         }
     }
 }
@@ -108,7 +110,7 @@ pub fn run(args: &[String], api_url: &str, _log_path: &str, patterns_file: Optio
         let mut ws: libc::winsize = std::mem::zeroed();
         libc::ioctl(stdin_fd, libc::TIOCGWINSZ, &mut ws);
         libc::ioctl(slave_fd, libc::TIOCSWINSZ, &ws);
-        MASTER_FD = master_fd;
+        MASTER_FD.store(master_fd, Ordering::Relaxed);
         signal::signal(Signal::SIGWINCH, SigHandler::Handler(handle_sigwinch)).ok();
     }
 

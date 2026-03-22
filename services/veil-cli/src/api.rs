@@ -98,6 +98,15 @@ impl VeilKeyClient {
         self.agent.get(url).call()
     }
 
+    #[allow(clippy::result_large_err)]
+    pub fn raw_get_with_timeout(
+        &self,
+        url: &str,
+        timeout: std::time::Duration,
+    ) -> Result<ureq::Response, ureq::Error> {
+        self.agent.get(url).timeout(timeout).call()
+    }
+
     pub fn issue(&self, value: &str) -> Result<String, String> {
         let value = value.trim_end_matches(['\r', '\n']);
         {
