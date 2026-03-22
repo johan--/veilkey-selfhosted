@@ -51,14 +51,16 @@ pub fn mask_output(
         }
     }
 
-    // Line-clear on masked lines to overwrite echo-back
+    // Line-clear on lines that had secrets replaced (contain our BOLD+CYAN or BOLD+RED).
+    // Only match our colorize_ref output, not pre-existing ANSI codes (e.g. colored prompts).
     if had_replacement {
         let mut cleared = String::new();
         for (i, line) in s.split('\n').enumerate() {
             if i > 0 {
                 cleared.push('\n');
             }
-            if line.contains("\x1b[") {
+            let has_our_ansi = line.contains("\x1b[1m\x1b[36m") || line.contains("\x1b[1m\x1b[31m");
+            if has_our_ansi {
                 cleared.push_str("\r\x1b[2K");
             }
             cleared.push_str(line);
