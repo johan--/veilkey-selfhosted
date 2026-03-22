@@ -2,7 +2,7 @@
 name = "veilkey-installer"
 version = "0.1.0"
 edition = "2021"
-license = "AGPL-3.0-or-later"
+license = "MIT"
 description = "Cross-platform installer for VeilKey Self-Hosted"
 
 [[bin]]
