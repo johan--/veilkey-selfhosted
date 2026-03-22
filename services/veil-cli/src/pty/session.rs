@@ -278,12 +278,27 @@ pub fn run(args: &[String], api_url: &str, _log_path: &str, patterns_file: Optio
                         if peek_result > 0 {
                             partial_buf.push(peek[0]);
                         } else {
-                            // No more data — flush as-is (prompt, echo-back)
+                            // No more data — mask and flush (catches history
+                            // recall, pasted secrets, prompts pass through unchanged)
                             raw_flush_accum.extend_from_slice(&partial_buf);
+                            let ri = input_ref.lock().unwrap().clone();
+                            let flushed = masker::mask_output(
+                                &partial_buf,
+                                &mask.read().unwrap(),
+                                &patterns,
+                                &client,
+                                &ri,
+                            );
+                            // If masking changed the output, also clear the line
+                            // first so the original text is overwritten
+                            if flushed != partial_buf {
+                                let clear = b"\r\x1b[2K";
+                                libc::write(stdout_fd, clear.as_ptr() as _, clear.len());
+                            }
                             libc::write(
                                 stdout_fd,
-                                partial_buf.as_ptr() as _,
-                                partial_buf.len(),
+                                flushed.as_ptr() as _,
+                                flushed.len(),
                             );
                             partial_buf.clear();
                         }
