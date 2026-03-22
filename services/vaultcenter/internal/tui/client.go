@@ -60,9 +60,25 @@ func (c *Client) Unlock(password string) error {
 	return nil
 }
 
-func (c *Client) Login(code string) error {
+// LoginTOTP authenticates with a TOTP code.
+func (c *Client) LoginTOTP(code string) error {
 	body, _ := json.Marshal(map[string]string{"code": code})
 	resp, err := c.http.Post(c.baseURL+"/api/admin/session/login", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("login request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		msg, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("login failed (%d): %s", resp.StatusCode, string(msg))
+	}
+	return nil
+}
+
+// LoginPassword authenticates with admin password.
+func (c *Client) LoginPassword(password string) error {
+	body, _ := json.Marshal(map[string]string{"password": password})
+	resp, err := c.http.Post(c.baseURL+"/api/admin/login", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("login request failed: %w", err)
 	}
@@ -150,6 +166,27 @@ func (c *Client) GetVaultAudit(vaultHash string) ([]map[string]any, error) {
 		return nil, err
 	}
 	return decodeList[map[string]any](data, "events")
+}
+
+// ── Secret Reveal ──
+
+// RevealAuthorize opens a reveal window for a secret ref.
+func (c *Client) RevealAuthorize(ref, reason string) error {
+	body := marshal(map[string]string{"ref": ref, "reason": reason})
+	_, err := c.postJSON("/api/admin/reveal-authorize", body)
+	return err
+}
+
+// RevealSecret decrypts a vault secret (requires prior authorize).
+func (c *Client) RevealSecret(ref string) (string, error) {
+	data, err := c.postJSON("/api/admin/reveal", marshal(map[string]string{"ref": ref}))
+	if err != nil {
+		return "", err
+	}
+	if v, ok := data["value"].(string); ok {
+		return v, nil
+	}
+	return "", fmt.Errorf("no value in response")
 }
 
 // ── Agents ──

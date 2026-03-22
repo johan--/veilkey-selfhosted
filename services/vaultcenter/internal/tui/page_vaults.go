@@ -38,6 +38,8 @@ type vaultsModel struct {
 	secretMeta       map[string]any
 	secretBindings   []map[string]any
 	metaLoading      bool
+	revealValue      string
+	revealing        bool
 
 	// Agents
 	agents      []map[string]any
@@ -59,6 +61,7 @@ type secretMetaMsg struct {
 	meta     map[string]any
 	bindings []map[string]any
 }
+type secretRevealedMsg struct{ value string }
 
 func newVaultsModel() vaultsModel {
 	return vaultsModel{loading: true}
@@ -104,6 +107,20 @@ func loadCatalogCmd(c *Client) tea.Cmd {
 	}
 }
 
+func revealSecretCmd(c *Client, ref string) tea.Cmd {
+	return func() tea.Msg {
+		// Authorize first, then reveal
+		if err := c.RevealAuthorize(ref, "TUI admin reveal"); err != nil {
+			return errMsg{err}
+		}
+		val, err := c.RevealSecret(ref)
+		if err != nil {
+			return errMsg{err}
+		}
+		return secretRevealedMsg{val}
+	}
+}
+
 func loadSecretMetaCmd(c *Client, vaultHash, name string) tea.Cmd {
 	return func() tea.Msg {
 		meta, _ := c.GetSecretMeta(vaultHash, name)
@@ -144,6 +161,11 @@ func (m vaultsModel) update(msg tea.Msg, c *Client) (vaultsModel, tea.Cmd) {
 		m.metaLoading = false
 		return m, nil
 
+	case secretRevealedMsg:
+		m.revealValue = msg.value
+		m.revealing = false
+		return m, nil
+
 	case errMsg:
 		m.loading = false
 		m.offline = true
@@ -171,8 +193,22 @@ func (m vaultsModel) update(msg tea.Msg, c *Client) (vaultsModel, tea.Cmd) {
 		}
 
 		if m.showSecretDetail {
-			if msg.String() == "esc" {
+			switch msg.String() {
+			case "r":
+				if !m.revealing && m.revealValue == "" {
+					ref := str(m.secretDetail, "token")
+					if ref == "" {
+						ref = str(m.secretDetail, "ref")
+					}
+					m.revealing = true
+					return m, revealSecretCmd(c, ref)
+				}
+			case "h":
+				m.revealValue = ""
+			case "esc":
 				m.showSecretDetail = false
+				m.revealValue = ""
+				m.revealing = false
 			}
 			return m, nil
 		}
@@ -441,8 +477,33 @@ func (m vaultsModel) viewSecretDetail() string {
 		}
 	}
 
+	// Reveal — VK: masked, VE: shown as-is
 	b.WriteString("\n")
-	b.WriteString(styleDim.Render("  esc back"))
+	isVK := strings.HasPrefix(ref, "VK:")
+	if isVK {
+		if m.revealing {
+			b.WriteString("  " + styleDim.Render("Decrypting..."))
+		} else if m.revealValue != "" {
+			b.WriteString("  " + styleLabel.Render("Value"))
+			b.WriteString(styleReveal.Render(m.revealValue))
+			b.WriteString("\n  " + styleDim.Render("h hide"))
+		} else {
+			b.WriteString("  " + styleLabel.Render("Value"))
+			b.WriteString(styleDim.Render("••••••••"))
+			b.WriteString("\n  " + styleDim.Render("r reveal"))
+		}
+	} else {
+		// VE: refs — show ref as value (not encrypted by VaultCenter)
+		b.WriteString("  " + styleLabel.Render("Value"))
+		b.WriteString(styleValue.Render(ref))
+	}
+
+	b.WriteString("\n\n")
+	if isVK {
+		b.WriteString(styleDim.Render("  r reveal  h hide  esc back"))
+	} else {
+		b.WriteString(styleDim.Render("  esc back"))
+	}
 	return b.String()
 }
 

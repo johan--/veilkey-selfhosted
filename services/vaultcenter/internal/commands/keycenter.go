@@ -29,6 +29,7 @@ func RunKeycenter() {
 	p := tea.NewProgram(
 		tui.NewModel(url),
 		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
 	)
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("TUI error: %v", err)

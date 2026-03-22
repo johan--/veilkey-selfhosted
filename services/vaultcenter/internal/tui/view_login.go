@@ -12,15 +12,24 @@ type loginStep int
 const (
 	loginStepCheckStatus loginStep = iota
 	loginStepUnlock
-	loginStepTOTP
+	loginStepAuth
+)
+
+type authMethod int
+
+const (
+	authTOTP authMethod = iota
+	authPassword
 )
 
 type loginModel struct {
-	step       loginStep
-	kekInput   textinput.Model
-	totpInput  textinput.Model
-	logging    bool
-	errText    string
+	step         loginStep
+	method       authMethod
+	kekInput     textinput.Model
+	totpInput    textinput.Model
+	pwInput      textinput.Model
+	logging      bool
+	errText      string
 	serverLocked bool
 }
 
@@ -39,10 +48,18 @@ func newLoginModel() loginModel {
 	totp.CharLimit = 6
 	totp.Width = 20
 
+	pw := textinput.New()
+	pw.Placeholder = "admin password"
+	pw.EchoMode = textinput.EchoPassword
+	pw.EchoCharacter = '•'
+	pw.Width = 40
+
 	return loginModel{
-		step:      loginStepCheckStatus,
-		kekInput:  kek,
+		step:     loginStepCheckStatus,
+		method:   authTOTP,
+		kekInput: kek,
 		totpInput: totp,
+		pwInput:  pw,
 	}
 }
 
@@ -55,9 +72,18 @@ func unlockCmd(c *Client, password string) tea.Cmd {
 	}
 }
 
-func loginCmd(c *Client, code string) tea.Cmd {
+func loginTOTPCmd(c *Client, code string) tea.Cmd {
 	return func() tea.Msg {
-		if err := c.Login(code); err != nil {
+		if err := c.LoginTOTP(code); err != nil {
+			return loginFailMsg{err.Error()}
+		}
+		return loginSuccessMsg{}
+	}
+}
+
+func loginPasswordCmd(c *Client, password string) tea.Cmd {
+	return func() tea.Msg {
+		if err := c.LoginPassword(password); err != nil {
 			return loginFailMsg{err.Error()}
 		}
 		return loginSuccessMsg{}
@@ -72,19 +98,18 @@ func (m loginModel) update(msg tea.Msg, c *Client) (loginModel, tea.Cmd) {
 			m.serverLocked = true
 			m.kekInput.Focus()
 		} else if msg.status == "ready" {
-			m.step = loginStepTOTP
-			m.totpInput.Focus()
+			m.step = loginStepAuth
+			m.focusActiveInput()
 		} else {
 			m.errText = "Server is " + msg.status
 		}
 		return m, nil
 
 	case unlockSuccessMsg:
-		m.step = loginStepTOTP
+		m.step = loginStepAuth
 		m.logging = false
 		m.errText = ""
-		m.totpInput.SetValue("")
-		m.totpInput.Focus()
+		m.focusActiveInput()
 		return m, nil
 
 	case unlockFailMsg:
@@ -97,30 +122,29 @@ func (m loginModel) update(msg tea.Msg, c *Client) (loginModel, tea.Cmd) {
 	case loginFailMsg:
 		m.logging = false
 		m.errText = msg.err
-		m.totpInput.SetValue("")
-		m.totpInput.Focus()
+		if m.method == authTOTP {
+			m.totpInput.SetValue("")
+			m.totpInput.Focus()
+		} else {
+			m.pwInput.SetValue("")
+			m.pwInput.Focus()
+		}
 		return m, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "enter":
-			switch m.step {
-			case loginStepUnlock:
-				pw := strings.TrimSpace(m.kekInput.Value())
-				if pw == "" {
-					return m, nil
+			return m.handleSubmit(c)
+		case "tab":
+			if m.step == loginStepAuth {
+				if m.method == authTOTP {
+					m.method = authPassword
+				} else {
+					m.method = authTOTP
 				}
-				m.logging = true
 				m.errText = ""
-				return m, unlockCmd(c, pw)
-			case loginStepTOTP:
-				code := strings.TrimSpace(m.totpInput.Value())
-				if code == "" {
-					return m, nil
-				}
-				m.logging = true
-				m.errText = ""
-				return m, loginCmd(c, code)
+				m.focusActiveInput()
+				return m, nil
 			}
 		}
 	}
@@ -130,10 +154,58 @@ func (m loginModel) update(msg tea.Msg, c *Client) (loginModel, tea.Cmd) {
 	switch m.step {
 	case loginStepUnlock:
 		m.kekInput, cmd = m.kekInput.Update(msg)
-	case loginStepTOTP:
-		m.totpInput, cmd = m.totpInput.Update(msg)
+	case loginStepAuth:
+		if m.method == authTOTP {
+			m.totpInput, cmd = m.totpInput.Update(msg)
+		} else {
+			m.pwInput, cmd = m.pwInput.Update(msg)
+		}
 	}
 	return m, cmd
+}
+
+func (m *loginModel) focusActiveInput() {
+	m.totpInput.Blur()
+	m.pwInput.Blur()
+	if m.method == authTOTP {
+		m.totpInput.SetValue("")
+		m.totpInput.Focus()
+	} else {
+		m.pwInput.SetValue("")
+		m.pwInput.Focus()
+	}
+}
+
+func (m loginModel) handleSubmit(c *Client) (loginModel, tea.Cmd) {
+	switch m.step {
+	case loginStepUnlock:
+		pw := strings.TrimSpace(m.kekInput.Value())
+		if pw == "" {
+			return m, nil
+		}
+		m.logging = true
+		m.errText = ""
+		return m, unlockCmd(c, pw)
+	case loginStepAuth:
+		if m.method == authTOTP {
+			code := strings.TrimSpace(m.totpInput.Value())
+			if code == "" {
+				return m, nil
+			}
+			m.logging = true
+			m.errText = ""
+			return m, loginTOTPCmd(c, code)
+		} else {
+			pw := strings.TrimSpace(m.pwInput.Value())
+			if pw == "" {
+				return m, nil
+			}
+			m.logging = true
+			m.errText = ""
+			return m, loginPasswordCmd(c, pw)
+		}
+	}
+	return m, nil
 }
 
 func (m loginModel) view(width int) string {
@@ -160,24 +232,41 @@ func (m loginModel) view(width int) string {
 	case loginStepUnlock:
 		b.WriteString("  " + styleError.Render("Server is locked") + "\n\n")
 		b.WriteString("  " + styleLabel.Render("Master Key") + "\n")
-		b.WriteString("  " + m.kekInput.View() + "\n\n")
-	case loginStepTOTP:
+		b.WriteString("  " + m.kekInput.View() + "\n")
+	case loginStepAuth:
 		if m.serverLocked {
-			b.WriteString("  " + lipglossGreen("✓ Server unlocked") + "\n\n")
+			b.WriteString("  " + styleSuccess.Render("✓ Server unlocked") + "\n\n")
 		}
-		b.WriteString("  " + styleLabel.Render("TOTP Code") + "\n")
-		b.WriteString("  " + m.totpInput.View() + "\n\n")
+
+		// Auth method tabs
+		totpTab := styleInactive.Render(" TOTP ")
+		pwTab := styleInactive.Render(" Password ")
+		if m.method == authTOTP {
+			totpTab = styleActive.Render(" TOTP ")
+		} else {
+			pwTab = styleActive.Render(" Password ")
+		}
+		b.WriteString("  " + totpTab + " " + pwTab + "\n\n")
+
+		if m.method == authTOTP {
+			b.WriteString("  " + styleLabel.Render("TOTP Code") + "\n")
+			b.WriteString("  " + m.totpInput.View() + "\n")
+		} else {
+			b.WriteString("  " + styleLabel.Render("Admin Password") + "\n")
+			b.WriteString("  " + m.pwInput.View() + "\n")
+		}
 	}
 
 	if m.errText != "" {
-		b.WriteString("  " + styleError.Render(m.errText) + "\n\n")
+		b.WriteString("\n  " + styleError.Render(m.errText))
 	}
 
-	b.WriteString(styleDim.Render("  enter submit  q quit"))
+	b.WriteString("\n\n")
+	if m.step == loginStepAuth {
+		b.WriteString(styleDim.Render("  enter submit  tab switch method  q quit"))
+	} else {
+		b.WriteString(styleDim.Render("  enter submit  q quit"))
+	}
 
 	return b.String()
-}
-
-func lipglossGreen(s string) string {
-	return styleSuccess.Render(s)
 }

@@ -84,9 +84,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		return m, nil
 
+	case tea.MouseMsg:
+		if msg.Action == tea.MouseActionRelease && msg.Button == tea.MouseButtonLeft {
+			// Tab bar click (first line, row 0)
+			if msg.Y == 0 && m.activePage != pageLogin {
+				clickedTab := detectTabClick(msg.X, pageNames)
+				if clickedTab >= 0 && clickedTab < len(pages) {
+					return m.switchPage(pages[clickedTab])
+				}
+			}
+		}
+
 	case statusMsg:
 		m.status = msg.status
-		return m, nil
+		// Fall through to let login handle it too
 
 	case errMsg:
 		m.err = msg.err
@@ -185,6 +196,21 @@ func (m Model) switchPage(p page) (Model, tea.Cmd) {
 		return m, loadSettingsCmd(m.client)
 	}
 	return m, nil
+}
+
+// detectTabClick returns the tab index clicked based on X position.
+// Tab format: "  | 1 Name | 2 Name | ..."
+func detectTabClick(x int, names []string) int {
+	pos := 2 // initial margin
+	for i, name := range names {
+		// Each tab: " N Name " with padding
+		tabWidth := len(name) + 4 // " N Name "
+		if x >= pos && x < pos+tabWidth {
+			return i
+		}
+		pos += tabWidth + 1 // +1 for space between tabs
+	}
+	return -1
 }
 
 func (m Model) isEditing() bool {
