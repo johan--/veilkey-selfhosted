@@ -1061,15 +1061,24 @@ mod pty_wrap {
                                         });
 
                                     if is_typing_echo || has_partial_secret {
-                                        // Wait longer — more data likely coming
-                                        let wait = if is_typing_echo { 200 } else { lookahead_ms };
-                                        std::thread::sleep(Duration::from_millis(wait));
-                                        let n2 =
-                                            libc::read(master_fd, buf.as_mut_ptr() as _, buf.len());
-                                        if n2 > 0 {
+                                        // Keep collecting until no more data or newline appears
+                                        for _ in 0..50 {
+                                            std::thread::sleep(Duration::from_millis(30));
+                                            let n2 = libc::read(
+                                                master_fd,
+                                                buf.as_mut_ptr() as _,
+                                                buf.len(),
+                                            );
+                                            if n2 <= 0 {
+                                                break;
+                                            }
                                             partial_buf.extend_from_slice(&buf[..n2 as usize]);
-                                            continue; // Re-enter loop to process combined buffer
+                                            // If newline arrived, stop collecting
+                                            if buf[..n2 as usize].contains(&b'\n') {
+                                                break;
+                                            }
                                         }
+                                        continue; // Re-enter loop to flush with masking
                                     }
                                     // Flush partial with overlap
                                     let mut combined = std::mem::take(&mut overlap_buf);
