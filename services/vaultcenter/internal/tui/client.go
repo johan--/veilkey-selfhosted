@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"net/http/cookiejar"
 	"time"
 )
@@ -18,15 +19,17 @@ type Client struct {
 }
 
 // NewClient creates a new API client for the given VaultCenter URL.
+// Set VEILKEY_TLS_INSECURE=1 to skip TLS certificate verification.
 func NewClient(baseURL string) *Client {
 	jar, _ := cookiejar.New(nil)
+	insecure := os.Getenv("VEILKEY_TLS_INSECURE") == "1"
 	return &Client{
 		baseURL: baseURL,
 		http: &http.Client{
 			Timeout: 10 * time.Second,
 			Jar:     jar,
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
 			},
 		},
 	}
@@ -351,8 +354,7 @@ func marshal(v any) []byte {
 	return b
 }
 
-func jsonMarshal(v any) ([]byte, error)   { return json.Marshal(v) }
-func jsonUnmarshal(b []byte, v any) error { return json.Unmarshal(b, v) }
+func jsonMarshal(v any) ([]byte, error) { return json.Marshal(v) }
 
 func decodeList[T any](data map[string]any, key string) ([]T, error) {
 	raw, ok := data[key]

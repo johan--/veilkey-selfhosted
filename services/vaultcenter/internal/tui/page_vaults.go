@@ -141,6 +141,7 @@ func (m vaultsModel) update(msg tea.Msg, c *Client) (vaultsModel, tea.Cmd) {
 	case secretsLoadedMsg:
 		m.secrets = msg.secrets
 		m.secretsLoading = false
+		m.secretsCursor = clampCursor(m.secretsCursor, len(m.secrets))
 		return m, nil
 
 	case agentsLoadedMsg:

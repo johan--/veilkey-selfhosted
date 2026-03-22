@@ -3,31 +3,39 @@ package commands
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"veilkey-vaultcenter/internal/tui"
 )
 
 func RunKeycenter() {
-	url := os.Getenv("VEILKEY_KEYCENTER_URL")
-	if url == "" {
-		url = os.Getenv("VEILKEY_ADDR")
+	addr := os.Getenv("VEILKEY_KEYCENTER_URL")
+	if addr == "" {
+		addr = os.Getenv("VEILKEY_ADDR")
 	}
-	if url == "" {
-		url = "https://10.50.0.110:11181"
-	}
-	// Ensure URL has scheme
-	if len(url) > 0 && url[0] == ':' {
-		url = "https://localhost" + url
-	} else if len(url) > 0 && url[0] != 'h' {
-		url = "https://" + url
+	if addr == "" {
+		addr = "https://10.50.0.110:11181"
 	}
 
-	fmt.Printf("Connecting to VaultCenter at %s...\n", url)
+	// Normalize to a full URL
+	if strings.HasPrefix(addr, ":") {
+		addr = "https://localhost" + addr
+	}
+	if !strings.Contains(addr, "://") {
+		addr = "https://" + addr
+	}
+
+	if _, err := url.Parse(addr); err != nil {
+		log.Fatalf("Invalid URL: %s (%v)", addr, err)
+	}
+
+	fmt.Printf("Connecting to VaultCenter at %s...\n", addr)
 
 	p := tea.NewProgram(
-		tui.NewModel(url),
+		tui.NewModel(addr),
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
 	)

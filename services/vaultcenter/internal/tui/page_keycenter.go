@@ -192,7 +192,12 @@ func (m keycenterModel) updateCreate(msg tea.KeyMsg, c *Client) (keycenterModel,
 func (m keycenterModel) updateConfirm(msg tea.KeyMsg, c *Client) (keycenterModel, tea.Cmd) {
 	switch msg.String() {
 	case "y":
-		return m, func() tea.Msg { return refDeletedMsg{} }
+		// Temp refs expire automatically; no delete API exists.
+		// Return to list with info message.
+		m.subview = kcList
+		return m, func() tea.Msg {
+			return errMsg{fmt.Errorf("temp refs expire automatically — manual delete not supported")}
+		}
 	case "n", "esc":
 		m.subview = kcList
 	}
