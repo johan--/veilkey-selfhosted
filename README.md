@@ -1,7 +1,7 @@
 <div align="center">
   <img src=".github/banner.png" alt="VeilKey" width="720">
   <h1>VeilKey Self-Hosted</h1>
-  <p><strong>Self-hosted secret manager — own your secrets, never expose them to AI or third parties.<br>셀프호스팅 시크릿 매니저 — AI와 제3자에 노출 없이 시크릿을 직접 관리하세요.</strong></p>
+  <p><strong>Hide secrets BEFORE they reach your terminal.</strong></p>
   <p>
     <a href="https://github.com/veilkey/veilkey-selfhosted/actions/workflows/ci.yml"><img src="https://github.com/veilkey/veilkey-selfhosted/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
     <a href="https://github.com/veilkey/veilkey-selfhosted/releases"><img src="https://img.shields.io/github/v/release/veilkey/veilkey-selfhosted?display_name=tag" alt="GitHub release"></a>
@@ -10,66 +10,54 @@
   </p>
 </div>
 
-## What is VeilKey?
+## The Problem
+
+AI coding tools (Claude Code, Cursor, Copilot) read your terminal output, environment variables, and files.
+
+If a password appears anywhere — even for a moment — **AI sees it.**
+
+## The Solution
+
+VeilKey wraps your terminal. Secrets never appear on screen.
+
+```bash
+# Without VeilKey — AI sees your password
+$ echo $DB_PASSWORD
+actual-password-here          ← AI reads this
+
+# With VeilKey — AI sees only a reference
+$ veil                        ← enter protected shell
+$ echo $DB_PASSWORD
+VK:LOCAL:ea2bfd16             ← AI reads this (encrypted ref)
+
+# But your app still gets the real password
+$ npm start                   ← DB_PASSWORD = actual-password-here
+```
 
 <div align="center">
   <img src=".github/concept.jpeg" alt="VeilKey concept — AI sees VK:AF1Y45, real key is PASS1234" width="640">
-  <p><em>AI sees <code>VK:AF1Y45</code> on screen. The real key <code>PASS1234</code> stays hidden.</em></p>
+  <p><em>AI sees <code>VK:AF1Y45</code>. The real key <code>PASS1234</code> stays hidden.</em></p>
 </div>
 
-VeilKey was built for one reason: **AI should never see your secrets.**
-
-AI coding tools (Claude Code, Cursor, Copilot) read your terminal output, environment variables, and files. If a password appears anywhere, AI sees it. VeilKey wraps your terminal in a PTY filter that replaces real secrets with encrypted references in real time.
-
-```bash
-# Inside a veil shell
-$ cat .env
-DB_PASSWORD=VK:LOCAL:ea2bfd16    # What AI sees
-
-# The actual app receives the real password
-$ npm start                       # DB_PASSWORD=actual-secret
-```
-
-When secrets appear in PTY output, they are automatically replaced with VK refs. 222 built-in patterns detect API keys, tokens, and passwords on the fly — even ones you haven't registered yet.
-
-## Architecture
-
-<div align="center">
-  <img src=".github/architecture.jpeg" alt="VaultCenter and LocalVaults" width="720">
-  <p><em>VaultCenter manages encryption keys. LocalVaults store ciphertext only.</em></p>
-</div>
+## How It Works
 
 ```
-VaultCenter (key manager)          LocalVault (vault)
-┌──────────────────────┐          ┌──────────────────┐
-│ agentDEK (encryption │          │ ciphertext only   │
-│ key, KEK-protected)  │          │ cannot decrypt    │
-│ blockchain audit log │          │                   │
-└──────────────────────┘          └──────────────────┘
-         │                                  │
-         └──── both required to decrypt ────┘
-
-veil CLI (PTY masking)
-┌──────────────────────────────────────────┐
-│ env vars: VK:LOCAL:xxx → real value (app)│
-│ output: real value → VK:LOCAL:xxx (AI)   │
-└──────────────────────────────────────────┘
+You type a command
+    ↓
+VeilKey intercepts the output
+    ↓
+Passwords get replaced with VK:LOCAL:xxx references
+    ↓
+AI sees only the references — never the real values
+    ↓
+Your apps still receive the real passwords
 ```
 
-**Both must be compromised to access secrets:**
-- VaultCenter only → has agentDEK but no ciphertext
-- LocalVault only → has ciphertext but no agentDEK
+VeilKey detects **222 secret patterns** automatically — AWS keys, GitHub tokens, API keys, passwords — even ones you haven't registered yet.
 
-## Installation
+## Quick Start
 
-Platform-specific guides are in [`install/`](./install/):
-
-| Platform | Guide |
-|----------|-------|
-| **macOS** | [`install/macos/`](./install/macos/) — npm or source build + Docker |
-| **Proxmox LXC (Debian)** | [`install/proxmox-lxc-debian/`](./install/proxmox-lxc-debian/) — Privileged LXC + Docker Compose |
-
-### Quick start (macOS)
+### macOS
 
 ```bash
 git clone https://github.com/veilkey/veilkey-selfhosted.git
@@ -77,7 +65,7 @@ cd veilkey-selfhosted
 bash install/macos/bootstrap/install-all.sh
 ```
 
-### Quick start (Proxmox LXC)
+### Proxmox LXC (Debian)
 
 ```bash
 git clone https://github.com/veilkey/veilkey-selfhosted.git
@@ -85,135 +73,97 @@ cd veilkey-selfhosted
 CT_IP=<IP>/<MASK> CT_GW=<GATEWAY> bash install/proxmox-lxc-debian/install-veilkey.sh
 ```
 
-### After install
+After install, see [Post-Install Setup](./docs/setup/README.md) for initialization.
 
-See [Post-Install Setup](./docs/setup/README.md) for VaultCenter initialization, LocalVault registration, and secret storage.
+## Commands
 
-## Key Features
-
-### PTY Bidirectional Masking
 ```bash
-# Inside veil shell — safe even if AI reads this output
-$ echo $DB_PASSWORD
-VK:LOCAL:ea2bfd16              # masked (real value: actual-password)
-
-$ cat config.env
-DB_PASSWORD=VK:LOCAL:ea2bfd16  # file reads masked too
-
-# Real processes receive the actual value
-$ node app.js                  # process.env.DB_PASSWORD = "actual-password"
+veil                          # Enter protected shell
+veil status                   # Check connection
+veil resolve VK:LOCAL:xxx     # Decrypt a reference
+veil exec echo VK:LOCAL:xxx   # Run command with real values
+veil scan file.env            # Find secrets in files (222 patterns)
 ```
 
-### Real-time Pattern Detection
-- 222 built-in patterns (npm tokens, AWS keys, GitHub PATs, etc.)
-- Secrets detected in output are auto-registered as VK:TEMP
-- No manual registration needed — just use `veil`
+## Architecture
 
-### CometBFT Blockchain Audit
-- All key create/rotate/delete operations recorded on immutable chain
-- LocalVault validates blocks as full node → prevents VaultCenter tampering
-- DB hack detectable via broken block hash chain
-
-### Split Storage
-- VaultCenter: holds agentDEK (encryption key)
-- LocalVault: holds ciphertext only (cannot decrypt)
-- Single compromise = no access to secrets
-
-### Admin Web UI
-- Keycenter: temp key CRUD, vault promotion, registration tokens
-- Vault management: secret browsing, function bindings, config
-- Audit log: full key operation history
-
-## Repository Structure
+VeilKey splits secrets across two servers. **Both must be compromised** to access any secret.
 
 ```
-services/
-  vaultcenter/     # Central management server (Go)
-  localvault/      # Local vault (Go)
-  veil-cli/        # veil, veilkey, veilkey-cli (Rust)
-packages/
-  veil-cli/        # npm package wrapper
-docker-compose.yml # Full stack (VC + LV + veil)
+VaultCenter                    LocalVault
+┌────────────────────┐        ┌────────────────────┐
+│ Encryption keys    │        │ Encrypted data     │
+│ (can't read data   │        │ (can't decrypt     │
+│  without data)     │        │  without keys)     │
+└────────────────────┘        └────────────────────┘
+         │                              │
+         └──── both needed to read ────┘
 ```
 
-## CLI Commands
+| Component | What it stores | What it can do alone |
+|-----------|---------------|---------------------|
+| **VaultCenter** | Encryption keys | Nothing (no data) |
+| **LocalVault** | Encrypted secrets | Nothing (no keys) |
+| **veil CLI** | Nothing | Masks terminal output |
 
-| Command | Description |
-|---------|-------------|
-| `veil` | Enter protected PTY session |
-| `veil status` | Show connection status |
-| `veil resolve VK:LOCAL:xxx` | Resolve ref to actual value |
-| `veil exec echo VK:LOCAL:xxx` | Replace refs in args and execute |
-| `veil scan file.env` | Detect secrets (222 patterns) |
-| `veil localvault init` | Install LocalVault in current directory |
+Every key operation is recorded on a **blockchain audit trail** — if someone tampers with the database, the chain breaks.
 
-## Comparison
+## What's Different?
 
-| Feature | 1Password CLI | Doppler | HashiCorp Vault | **VeilKey** |
-|---------|---------------|---------|-----------------|-------------|
-| Secret storage | Yes | Yes | Yes | Yes |
-| Reference system | `op://` | No | No | `VK:LOCAL:` |
-| Env var injection | Yes | Yes | Yes | Yes |
-| **PTY output masking** | No | No | No | **Yes** |
-| **Bidirectional replacement** | No | No | No | **Yes** |
-| **File read masking** | No | No | No | **Yes** |
-| **Pattern auto-detection** | No | No | No | **Yes (222)** |
-| Blockchain audit | No | No | No | **Yes** |
-| Split storage (VC/LV) | No | No | No | **Yes** |
+| | 1Password CLI | Doppler | HashiCorp Vault | **VeilKey** |
+|---|---|---|---|---|
+| Store secrets | Yes | Yes | Yes | Yes |
+| Inject env vars | Yes | Yes | Yes | Yes |
+| **Hide from terminal output** | No | No | No | **Yes** |
+| **Auto-detect secrets** | No | No | No | **Yes (222 patterns)** |
+| **Blockchain audit** | No | No | No | **Yes** |
+| **Split storage** | No | No | No | **Yes** |
 | Self-hosted | No | No | Yes | **Yes** |
 
-## Environment Variables
+## Admin Panel
 
-See `.env.example` files for all configurable values:
-- `services/vaultcenter/.env.example`
-- `services/localvault/.env.example`
+Two ways to manage VeilKey:
 
-Key settings:
+**Web UI** — open `https://<your-server>:10181/` in a browser
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VEILKEY_TEMP_REF_TTL` | `1h` | Temp key expiry |
-| `VEILKEY_ADMIN_SESSION_TTL` | `2h` | Admin session duration |
-| `VEILKEY_CHAIN_HOME` | `/data/chain` | CometBFT data path |
-| `VEILKEY_TLS_INSECURE` | `0` | Allow self-signed certs |
+**TUI** — run `vaultcenter keycenter` in your terminal (no browser needed)
 
-## How It Works (server restart)
+Both provide: secret management, vault browsing, audit logs, TOTP login, and server unlock.
 
-When VeilKey server restarts, you must **re-enter the master password**.
+## Server Restart
+
+When the server restarts, secrets are locked. You must enter the master password to unlock.
 
 ```
-Server start → LOCKED (DEK not in memory)
-  → Enter master password in web UI
-  → KEK derived → DEK decrypted → loaded into memory
-  → UNLOCKED (normal operation)
+Server starts → Locked
+  → Enter master password (web UI or TUI)
+  → Unlocked → normal operation
 ```
 
-**The password is never stored on disk.** KEK is derived from password + salt each time. DEK exists only in encrypted form in DB. When the server shuts down, both KEK and DEK are wiped from memory.
-
-You can set `VEILKEY_PASSWORD_FILE` for auto-unlock, but securing that file is your responsibility.
+The password is **never stored on disk**. When the server shuts down, keys are wiped from memory.
 
 ## Security
 
-**Never run AI tools with root privileges.**
+**Never run AI tools as root.**
 
-VeilKey prevents AI from accessing secrets, but with root access:
-- Process memory dump → DEK extraction possible
-- Direct `/data/` access → DB file manipulation possible
-- PTY masking bypass → raw output via `/proc/{pid}/fd/`
+VeilKey hides secrets from AI, but root access can bypass any protection (memory dumps, raw file access).
 
-**Recommendations:**
-- Run AI coding tools as a regular user
-- Work inside `veil` shell only → PTY masking guaranteed
-- Perform `sudo` operations outside veil
-- Add [`examples/CLAUDE.md`](./examples/CLAUDE.md) to your project → enforces AI agent security boundary
+**Best practices:**
+- Always work inside `veil` shell
+- Run AI tools as a regular user
+- Do `sudo` operations outside veil
 
-## Security Disclaimer
+## Repository
 
-VeilKey is a security-sensitive tool that handles secrets and cryptographic material.
-This software is provided WITHOUT WARRANTY. Before using VeilKey in production,
-conduct your own security audit and review.
-
-If you discover a security issue, please report it privately via GitHub Security Advisories.
+```
+services/
+  vaultcenter/     # Key management server (Go)
+  localvault/      # Encrypted storage (Go)
+  veil-cli/        # Terminal wrapper (Rust)
+packages/
+  veil-cli/        # npm package
+docker-compose.yml # Full stack
+```
 
 ## Contributing
 
@@ -225,4 +175,4 @@ MIT License. See [`LICENSE`](./LICENSE).
 
 ---
 
-<sub>Images in this README are AI-generated. 본 README의 이미지는 AI로 생성되었습니다.</sub>
+<sub>Images in this README are AI-generated.</sub>
