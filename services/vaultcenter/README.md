@@ -14,10 +14,51 @@ CGO_ENABLED=1 go build -o veilkey-vaultcenter ./cmd
 docker compose up --build -d vaultcenter
 ```
 
+## Admin UI
+
+VaultCenter는 두 가지 관리 인터페이스를 제공한다:
+
+### Web UI
+
+Vue.js SPA. 브라우저로 접속.
+
+```
+https://<vaultcenter-host>:10181/
+```
+
+- 경로: `services/vaultcenter/frontend/admin/`
+- 빌드: `cd frontend/admin && npm install && npx vite build`
+- 빌드 결과는 `internal/api/admin/ui_dist/`에 embed되어 Go 바이너리에 포함
+
+### TUI (Terminal UI)
+
+bubbletea 기반 터미널 관리 패널. 웹 브라우저 없이 tmux에서 직접 사용.
+
+```bash
+vaultcenter keycenter
+```
+
+- 서버 locked → 마스터키(KEK) 입력 → unlock
+- 인증: TOTP 코드 또는 관리자 패스워드 (tab으로 전환)
+- 5개 탭 (숫자 1~5 또는 마우스 클릭):
+
+| 탭 | 기능 |
+|----|------|
+| 1 Keycenter | temp ref 목록/상세/생성/reveal |
+| 2 Vaults | vault 목록, agent 목록, secret catalog, secret 상세 + 복호화 |
+| 3 Functions | global function 목록/상세/실행, 바인딩 |
+| 4 Audit | admin 감사 로그 |
+| 5 Settings | 서버 상태, 보안 설정, registration token 관리, configs |
+
+- VK: ref → 마스킹(`••••••••`), `r`로 reveal (authorize + decrypt)
+- VE: ref → 값 그대로 표시
+- 키: `j/k` 이동, `enter` 선택, `esc` 뒤로, `tab` 서브탭 전환, `r` 새로고침
+- 환경변수: `VEILKEY_KEYCENTER_URL`, `VEILKEY_TLS_INSECURE=1`
+
 ## Key responsibilities
 
 - Master password → KEK derivation → DEK management
-- Admin web UI (Vue.js SPA)
+- Admin web UI (Vue.js SPA) + TUI (bubbletea)
 - Keycenter: temp ref CRUD, promote to vault
 - Registration token management for LocalVault onboarding
 - CometBFT ABCI chain layer for audit trail
