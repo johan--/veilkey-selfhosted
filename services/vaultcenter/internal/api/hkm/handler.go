@@ -47,6 +47,12 @@ type Deps interface {
 
 	// ChainInfo returns genesis JSON and persistent_peers for child nodes joining the chain.
 	ChainInfo() (genesisJSON []byte, persistentPeers string)
+
+	// MaskMapVersion returns the current mask_map version counter.
+	MaskMapVersion() uint64
+
+	// MaskMapWait returns a channel that closes when mask_map version changes.
+	MaskMapWait() <-chan struct{}
 }
 
 // Handler owns all HKM HTTP handlers.
@@ -89,6 +95,9 @@ func (h *Handler) Register(
 
 	// Key rotation (root triggers full tree rotation)
 	mux.HandleFunc("POST /api/federation/rotate", trusted(ready(h.handleFederatedRotate)))
+
+	// Mask map for veil-cli PTY masking
+	mux.HandleFunc("GET /api/mask-map", trusted(ready(h.handleMaskMap)))
 
 	// Agent management (Hub-only decryption)
 	mux.HandleFunc("POST /api/agents/heartbeat", ready(h.handleAgentHeartbeat))
