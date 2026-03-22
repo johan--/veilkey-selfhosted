@@ -204,6 +204,9 @@ pub fn run(args: &[String], api_url: &str, _log_path: &str, patterns_file: Optio
             let input_ref = recent_input.clone();
             let stdout_fd = io::stdout().as_raw_fd();
             let mut partial_buf: Vec<u8> = Vec::new();
+            // Accumulate raw-flushed data (echo-back) to detect secrets.
+            // Cleared when newline-path masking runs.
+            let mut raw_flush_accum: Vec<u8> = Vec::new();
 
             let mut buf = [0u8; 32768];
             loop {
@@ -225,18 +228,34 @@ pub fn run(args: &[String], api_url: &str, _log_path: &str, patterns_file: Optio
                     let masked =
                         masker::mask_output(&to_mask, &mask.read().unwrap(), &patterns, &client, &ri);
 
-                    // If masking replaced something and data starts with newline
-                    // (i.e. output right after Enter), clear the previous line
-                    // where echo-back showed the plaintext.
-                    if masked != to_mask
-                        && (to_mask.starts_with(b"\r\n") || to_mask.starts_with(b"\n"))
-                    {
-                        unsafe {
-                            // cursor up 1, carriage return, clear line, cursor down 1
-                            let clear_prev = b"\x1b[1A\r\x1b[2K\x1b[1B";
-                            libc::write(stdout_fd, clear_prev.as_ptr() as _, clear_prev.len());
+                    // If masking replaced something, check if the echo-back line
+                    // (accumulated raw flushes + pre-newline part of to_mask)
+                    // contained a secret. If so, clear the echo-back line above.
+                    if masked != to_mask {
+                        let mut echo_line = raw_flush_accum.clone();
+                        // The tail of echo-back may be in to_mask before the first \n
+                        if let Some(nl) = to_mask.iter().position(|&b| b == b'\n') {
+                            echo_line.extend_from_slice(&to_mask[..nl]);
+                        }
+                        if !echo_line.is_empty() {
+                            let echo_str = String::from_utf8_lossy(&echo_line);
+                            let map = mask.read().unwrap();
+                            let echo_had_secret = map.iter().any(|(pt, _)| {
+                                !pt.is_empty() && echo_str.contains(pt.as_str())
+                            });
+                            if echo_had_secret {
+                                unsafe {
+                                    let clear_prev = b"\x1b[1A\r\x1b[2K\x1b[1B";
+                                    libc::write(
+                                        stdout_fd,
+                                        clear_prev.as_ptr() as _,
+                                        clear_prev.len(),
+                                    );
+                                }
+                            }
                         }
                     }
+                    raw_flush_accum.clear();
 
                     unsafe {
                         libc::write(stdout_fd, masked.as_ptr() as _, masked.len());
@@ -260,6 +279,7 @@ pub fn run(args: &[String], api_url: &str, _log_path: &str, patterns_file: Optio
                             partial_buf.push(peek[0]);
                         } else {
                             // No more data — flush as-is (prompt, echo-back)
+                            raw_flush_accum.extend_from_slice(&partial_buf);
                             libc::write(
                                 stdout_fd,
                                 partial_buf.as_ptr() as _,
