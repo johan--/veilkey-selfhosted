@@ -217,5 +217,8 @@ func (m Model) isEditing() bool {
 	if m.activePage == pageKeycenter {
 		return m.keycenter.creating
 	}
+	if m.activePage == pageSettings {
+		return m.settings.creatingToken
+	}
 	return false
 }
