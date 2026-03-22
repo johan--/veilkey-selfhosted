@@ -70,6 +70,9 @@ type Server struct {
 	chainHome       string
 	chainNodeID     string
 	bulkApplyDir    string
+	maskMapVersion  uint64
+	maskMapMu       sync.RWMutex
+	maskMapNotify   chan struct{}
 	updateMu        sync.RWMutex
 	updateState     systemUpdateState
 	approvalHandler *approval.Handler
@@ -414,7 +417,8 @@ func NewServer(database *db.DB, kek []byte, trustedIPs []string) *Server {
 		unlockLimiter: ratelimit.New(),
 		httpClient:    newPooledHTTPClient(tlsutil.InitHTTPClientFromEnv()),
 		chainStore:    &db.ChainStoreAdapter{DB: database},
-		bulkApplyDir:  strings.TrimSpace(os.Getenv("VEILKEY_BULK_APPLY_DIR")),
+		bulkApplyDir:   strings.TrimSpace(os.Getenv("VEILKEY_BULK_APPLY_DIR")),
+		maskMapNotify:  make(chan struct{}),
 	}
 	if database.HasNodeInfo() {
 		if info, err := database.GetNodeInfo(); err == nil {
@@ -448,6 +452,28 @@ func (s *Server) BulkApplyDir() string {
 func (s *Server) SetSalt(salt []byte) {
 	s.salt = salt
 	s.approvalHandler = approval.NewHandler(s.db, salt, s.httpClient)
+}
+
+// BumpMaskMapVersion increments the mask_map version and notifies waiting long-poll clients.
+func (s *Server) BumpMaskMapVersion() {
+	s.maskMapMu.Lock()
+	s.maskMapVersion++
+	ch := s.maskMapNotify
+	s.maskMapNotify = make(chan struct{})
+	s.maskMapMu.Unlock()
+	close(ch) // wake all waiting long-poll goroutines
+}
+
+func (s *Server) MaskMapVersion() uint64 {
+	s.maskMapMu.RLock()
+	defer s.maskMapMu.RUnlock()
+	return s.maskMapVersion
+}
+
+func (s *Server) MaskMapWait() <-chan struct{} {
+	s.maskMapMu.RLock()
+	defer s.maskMapMu.RUnlock()
+	return s.maskMapNotify
 }
 
 func (s *Server) Unlock(kek []byte) error {
