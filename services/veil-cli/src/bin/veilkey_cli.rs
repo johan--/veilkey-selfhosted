@@ -638,23 +638,16 @@ mod pty_wrap {
         recent_input: &str,
     ) -> Vec<u8> {
         let mut s = String::from_utf8_lossy(data).to_string();
-        let mut had_replacement = false;
 
         // 1. Known secrets from mask_map — padded to same visible length
-        //    Always mask, including echo-back — AI must never see plaintext.
         for (plaintext, vk_ref) in mask_map {
             if !plaintext.is_empty() && s.contains(plaintext.as_str()) {
                 s = s.replace(
                     plaintext.as_str(),
                     &padded_colorize_ref(vk_ref, plaintext.len()),
                 );
-                had_replacement = true;
             }
         }
-
-        // No line-clear in mask_output — handled at output phase to avoid
-        // interfering with overlap buffer byte calculations.
-        if had_replacement {}
 
         // 2. Pattern-detected secrets — scan, register, replace with padding
         //    Skip matches that are echo-back of recent user input (prevents false positives
@@ -1008,41 +1001,17 @@ mod pty_wrap {
                     let n = n as usize;
                     let chunk = &buf[..n];
                     if let Some(last_nl) = chunk.iter().rposition(|&b| b == b'\n') {
-                        // Prepend overlap from previous flush to catch cross-boundary secrets
-                        let mut combined = std::mem::take(&mut overlap_buf);
+                        // Combine partial buffer + current chunk up to last newline
+                        let mut combined = Vec::new();
                         combined.extend_from_slice(&partial_buf);
                         combined.extend_from_slice(&chunk[..last_nl + 1]);
-                        let overlap_len = overlap_buf.len(); // was taken, so 0 now — use saved value
-                        let saved_overlap_len = combined.len().min(max_secret_len);
 
                         let ri = input_ref.lock().unwrap().clone();
-                        let combined_len = combined.len();
                         let masked =
                             mask_output(&combined, &mask.read().unwrap(), &patterns, &client, &ri);
 
-                        // If masking changed the output, don't use overlap (ANSI escapes change byte count)
-                        let masking_occurred =
-                            masked.len() != combined_len || masked != combined.as_slice();
-                        if masking_occurred {
-                            // Write full masked output, no overlap
-                            unsafe {
-                                libc::write(stdout_fd, masked.as_ptr() as _, masked.len());
-                            }
-                            overlap_buf.clear();
-                        } else {
-                            // No masking — use overlap for cross-boundary detection
-                            if masked.len() > overlap_len {
-                                let new_output = &masked[overlap_len..];
-                                unsafe {
-                                    libc::write(
-                                        stdout_fd,
-                                        new_output.as_ptr() as _,
-                                        new_output.len(),
-                                    );
-                                }
-                            }
-                            overlap_buf =
-                                combined[combined_len.saturating_sub(saved_overlap_len)..].to_vec();
+                        unsafe {
+                            libc::write(stdout_fd, masked.as_ptr() as _, masked.len());
                         }
                         partial_buf.clear();
                         if last_nl + 1 < n {
@@ -1059,20 +1028,22 @@ mod pty_wrap {
                                 let peek_result = libc::read(master_fd, peek.as_mut_ptr() as _, 1);
                                 libc::fcntl(master_fd, libc::F_SETFL, flags);
                                 if peek_result <= 0 {
+                                    // Check if partial_buf ends with prefix of any known secret
+                                    // (removed the >8 length gate — all secrets now checked)
                                     let buf_str = String::from_utf8_lossy(&partial_buf);
-                                    // Check if partial_buf ends with prefix of any known secret (4+ chars)
                                     let has_partial_secret =
                                         mask.read().unwrap().iter().any(|(plaintext, _)| {
                                             let pl = plaintext.as_str();
                                             (4..pl.len()).any(|i| buf_str.ends_with(&pl[..i]))
                                         });
                                     if has_partial_secret {
+                                        // Wait for the rest of the secret
                                         std::thread::sleep(Duration::from_millis(lookahead_ms));
                                         let n2 =
                                             libc::read(master_fd, buf.as_mut_ptr() as _, buf.len());
                                         if n2 > 0 {
                                             partial_buf.extend_from_slice(&buf[..n2 as usize]);
-                                            continue;
+                                            continue; // Re-enter loop to process combined buffer
                                         }
                                     }
                                     // Flush partial with overlap
