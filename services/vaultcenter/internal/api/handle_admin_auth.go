@@ -262,6 +262,42 @@ func (s *Server) handleAdminSetup(w http.ResponseWriter, r *http.Request) {
 	s.respondJSON(w, http.StatusOK, map[string]interface{}{"status": "configured"})
 }
 
+func (s *Server) handleAdminChangePassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		OwnerPassword    string `json:"owner_password"`
+		NewAdminPassword string `json:"new_admin_password"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		s.respondError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.OwnerPassword == "" {
+		s.respondError(w, http.StatusBadRequest, "owner_password is required")
+		return
+	}
+	if len(req.NewAdminPassword) < 8 {
+		s.respondError(w, http.StatusBadRequest, "new_admin_password must be at least 8 characters")
+		return
+	}
+	// Verify owner password (KEK) — the ONLY way to change admin password
+	kek := crypto.DeriveKEK(req.OwnerPassword, s.salt)
+	info, err := s.db.GetNodeInfo()
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "node info not available")
+		return
+	}
+	if _, err := crypto.Decrypt(kek, info.DEK, info.DEKNonce); err != nil {
+		s.respondError(w, http.StatusUnauthorized, "invalid owner password")
+		return
+	}
+	if err := s.db.SetAdminPassword(req.NewAdminPassword); err != nil {
+		s.respondError(w, http.StatusInternalServerError, "failed to change admin password")
+		return
+	}
+	log.Printf("admin password changed by %s (owner-verified)", r.RemoteAddr)
+	s.respondJSON(w, http.StatusOK, map[string]interface{}{"status": "changed"})
+}
+
 func (s *Server) handleAdminCheck(w http.ResponseWriter, r *http.Request) {
 	if !s.db.HasAdminPassword() {
 		s.respondJSON(w, http.StatusOK, map[string]interface{}{"setup_required": true})
