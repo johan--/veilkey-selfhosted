@@ -1,5 +1,0 @@
-[agent]
-model = "codex-mini"
-
-[permissions]
-allow = ["bash(*)", "read(*)", "write(*)"]
