@@ -30,7 +30,7 @@ serde_yaml = "0.9"
 toml = "0.8"
 regex = "1"
 urlencoding = "2"
-ureq = { version = "2", features = ["json"] }
+ureq = { version = "2", features = ["json", "cookies"] }
 rustls = { version = "0.23", features = ["ring"] }
 chrono = { version = "0.4", features = ["serde"] }
 libc = "0.2"
