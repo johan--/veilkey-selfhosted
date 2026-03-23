@@ -85,6 +85,93 @@ veil exec echo VK:LOCAL:xxx   # Run command with real values
 veil scan file.env            # Find secrets in files (222 patterns)
 ```
 
+## Store & Use Secrets
+
+### 1. Store a secret
+
+```bash
+# Login to VaultCenter
+curl -sk -X POST https://<VC>:11181/api/admin/login \
+  -H 'Content-Type: application/json' \
+  -d '{"password":"<ADMIN_PASSWORD>"}' -c /tmp/vk-cookies.txt
+
+# Create temp ref
+curl -sk -X POST https://<VC>:11181/api/keycenter/temp-refs \
+  -H 'Content-Type: application/json' -b /tmp/vk-cookies.txt \
+  -d '{"name":"MY_API_KEY","value":"sk-actual-key-value"}'
+# → {"ref":"VK:TEMP:xxxxxxxx"}
+
+# Get vault hash
+curl -sk https://<VC>:11181/api/agents
+# → {"agents":[{"agent_hash":"a0a761c6", ...}]}
+
+# Promote to vault
+curl -sk -X POST https://<VC>:11181/api/keycenter/promote \
+  -H 'Content-Type: application/json' -b /tmp/vk-cookies.txt \
+  -d '{"ref":"VK:TEMP:xxxxxxxx","name":"MY_API_KEY","vault_hash":"a0a761c6"}'
+# → {"token":"VK:LOCAL:yyyyyyyy"}
+```
+
+### 2. Use in `.env` files
+
+Put VK references in `.env` — never plaintext:
+
+```env
+# .env
+ANTHROPIC_API_KEY=VK:LOCAL:ce2aac9a
+OPENAI_API_KEY=VK:LOCAL:7accddf2
+DB_PASSWORD=VK:LOCAL:bdd9d472
+```
+
+### 3. Resolve at runtime
+
+**Option A** — resolve in command args:
+
+```bash
+veil exec echo VK:LOCAL:ce2aac9a
+# → sk-ant-oat01-xxxxx (actual value)
+```
+
+**Option B** — resolve `.env` for your app:
+
+```bash
+#!/bin/bash
+# veil-run.sh — resolve VK refs in .env, then exec
+while IFS="=" read -r key value; do
+  [[ -z "$key" || "$key" =~ ^# ]] && continue
+  if [[ "$value" == VK:LOCAL:* || "$value" == VK:TEMP:* ]]; then
+    export "$key=$(veilkey-cli resolve "$value")"
+  else
+    export "$key=$value"
+  fi
+done < .env
+exec "$@"
+
+# Usage:
+#   ./veil-run.sh node app.js
+#   ./veil-run.sh python manage.py runserver
+#   ./veil-run.sh make dev
+```
+
+Your app receives real values. The `.env` file never contains plaintext.
+
+> **Note:** `veil exec` resolves VK refs in **command arguments**. For environment variables from `.env` files, use the wrapper pattern above.
+
+### 4. Use VK refs everywhere — even for infra
+
+```bash
+# Create an LXC without knowing the password
+veil exec pct create 105 local:vztmpl/debian-13.tar.zst \
+  --hostname myapp --password VK:LOCAL:bdd9d472 ...
+
+# SSH with a VK-managed key
+veil exec ssh -i VK:LOCAL:ssh-private-key user@host
+
+# Login to VaultCenter using a VK ref for the admin password
+veil exec curl -sk -X POST https://vc:11181/api/admin/login \
+  -d '{"password":"VK:LOCAL:6da25530"}'
+```
+
 ## Architecture
 
 VeilKey splits secrets across two servers. **Both must be compromised** to access any secret.
