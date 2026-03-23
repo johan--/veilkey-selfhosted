@@ -1,7 +1,6 @@
 package db
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -11,12 +10,12 @@ func newTestDB(t *testing.T) *DB {
 	t.Helper()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
-	os.Unsetenv("VEILKEY_DB_KEY")
+	t.Setenv("VEILKEY_DB_KEY", "")
 	d, err := New(dbPath)
 	if err != nil {
 		t.Fatalf("New(%s): %v", dbPath, err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() { _ = d.Close() })
 	return d
 }
 
