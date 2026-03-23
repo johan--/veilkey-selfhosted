@@ -69,6 +69,13 @@ pub fn cmd_wrap(args: &[String], api_url: &str, log_path: &str, patterns_file: O
 }
 
 pub fn cmd_resolve(hash: &str, api_url: &str) {
+    // Block non-TTY execution to prevent AI tools from reading plaintext via pipe
+    if unsafe { libc::isatty(1) } == 0 {
+        eprintln!(
+            "[veilkey] resolve is only available in interactive terminal (stdout must be a TTY)"
+        );
+        process::exit(1);
+    }
     let client = VeilKeyClient::new(api_url);
     match client.resolve(hash) {
         Ok(v) => print!("{}", v),
