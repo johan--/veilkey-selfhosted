@@ -4,6 +4,8 @@ use crate::config::CompiledPattern;
 const BOLD: &str = "\x1b[1m";
 const CYAN: &str = "\x1b[36m";
 const RED: &str = "\x1b[31m";
+const DIM: &str = "\x1b[2m";
+const MAGENTA: &str = "\x1b[35m";
 const RESET: &str = "\x1b[0m";
 
 pub fn colorize_ref(vk_ref: &str) -> String {
@@ -14,6 +16,12 @@ pub fn colorize_ref(vk_ref: &str) -> String {
     } else {
         vk_ref.to_string()
     }
+}
+
+/// VE ref: show original value with ref tag appended in a distinct color.
+/// e.g. "soulflow-lv" → "soulflow-lv(VE:LOCAL:VAULT_NAME)" with tag dimmed magenta.
+pub fn colorize_ve_ref(original: &str, ve_ref: &str) -> String {
+    format!("{}{}{}({}){}", original, DIM, MAGENTA, ve_ref, RESET)
 }
 
 pub fn padded_colorize_ref(vk_ref: &str, original_len: usize) -> String {
@@ -40,13 +48,20 @@ pub fn mask_output(
     let mut s = String::from_utf8_lossy(data).to_string();
     let mut had_replacement = false;
 
-    // 1. Known secrets — padded to same visible length
-    for (plaintext, vk_ref) in mask_map {
+    // 1. Known secrets — VK refs replaced, VE refs show original + tag
+    for (plaintext, ref_str) in mask_map {
         if !plaintext.is_empty() && s.contains(plaintext.as_str()) {
-            s = s.replace(
-                plaintext.as_str(),
-                &padded_colorize_ref(vk_ref, plaintext.len()),
-            );
+            if ref_str.starts_with("VE:") {
+                s = s.replace(
+                    plaintext.as_str(),
+                    &colorize_ve_ref(plaintext, ref_str),
+                );
+            } else {
+                s = s.replace(
+                    plaintext.as_str(),
+                    &padded_colorize_ref(ref_str, plaintext.len()),
+                );
+            }
             had_replacement = true;
         }
     }
@@ -59,7 +74,9 @@ pub fn mask_output(
             if i > 0 {
                 cleared.push('\n');
             }
-            let has_our_ansi = line.contains("\x1b[1m\x1b[36m") || line.contains("\x1b[1m\x1b[31m");
+            let has_our_ansi = line.contains("\x1b[1m\x1b[36m")
+                || line.contains("\x1b[1m\x1b[31m")
+                || line.contains("\x1b[2m\x1b[35m");
             if has_our_ansi {
                 cleared.push_str("\r\x1b[2K");
             }
