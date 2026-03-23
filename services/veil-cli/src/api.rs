@@ -67,6 +67,7 @@ pub struct VeilKeyClient {
     base_url: String,
     agent: ureq::Agent,
     cache: Arc<Mutex<HashMap<String, String>>>,
+    session_cookie: Arc<Mutex<Option<String>>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -86,6 +87,7 @@ impl VeilKeyClient {
             base_url: base_url.trim_end_matches('/').to_string(),
             agent: build_agent(),
             cache: Arc::new(Mutex::new(HashMap::new())),
+            session_cookie: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -94,25 +96,41 @@ impl VeilKeyClient {
     }
 
     /// Login to VaultCenter with admin password.
-    /// Session cookie is stored in the agent's cookie jar for subsequent requests.
+    /// Extracts session cookie from Set-Cookie header for subsequent requests.
     pub fn admin_login(&self, password: &str) -> Result<(), String> {
         let url = format!("{}/api/admin/login", self.base_url);
         let body = serde_json::json!({"password": password});
         match self.agent.post(&url).send_json(&body) {
             Ok(resp) => {
-                if resp.status() == 200 {
-                    Ok(())
-                } else {
-                    Err(format!("login failed: HTTP {}", resp.status()))
+                if resp.status() != 200 {
+                    return Err(format!("login failed: HTTP {}", resp.status()));
                 }
+                // Extract session cookie from Set-Cookie header
+                if let Some(set_cookie) = resp.header("set-cookie") {
+                    if let Some(cookie_value) = set_cookie.split(';').next() {
+                        if let Ok(mut guard) = self.session_cookie.lock() {
+                            *guard = Some(cookie_value.to_string());
+                        }
+                    }
+                }
+                Ok(())
             }
             Err(e) => Err(format!("login request failed: {}", e)),
         }
     }
 
+    /// Returns the session cookie header value if logged in.
+    fn cookie_header(&self) -> Option<String> {
+        self.session_cookie.lock().ok()?.clone()
+    }
+
     #[allow(clippy::result_large_err)]
     pub fn raw_get(&self, url: &str) -> Result<ureq::Response, ureq::Error> {
-        self.agent.get(url).call()
+        let mut req = self.agent.get(url);
+        if let Some(cookie) = self.cookie_header() {
+            req = req.set("Cookie", &cookie);
+        }
+        req.call()
     }
 
     #[allow(clippy::result_large_err)]
@@ -121,7 +139,11 @@ impl VeilKeyClient {
         url: &str,
         timeout: std::time::Duration,
     ) -> Result<ureq::Response, ureq::Error> {
-        self.agent.get(url).timeout(timeout).call()
+        let mut req = self.agent.get(url).timeout(timeout);
+        if let Some(cookie) = self.cookie_header() {
+            req = req.set("Cookie", &cookie);
+        }
+        req.call()
     }
 
     pub fn issue(&self, value: &str) -> Result<String, String> {
@@ -240,10 +262,13 @@ impl VeilKeyClient {
                 );
                 std::thread::sleep(delay);
             }
-            match self
+            let mut req = self
                 .agent
-                .get(&format!("{}/api/mask-map", self.base_url))
-                .call()
+                .get(&format!("{}/api/mask-map", self.base_url));
+            if let Some(cookie) = self.cookie_header() {
+                req = req.set("Cookie", &cookie);
+            }
+            match req.call()
             {
                 Ok(resp) => {
                     data = resp.into_json().ok();
