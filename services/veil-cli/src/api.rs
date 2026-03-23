@@ -262,14 +262,11 @@ impl VeilKeyClient {
                 );
                 std::thread::sleep(delay);
             }
-            let mut req = self
-                .agent
-                .get(&format!("{}/api/mask-map", self.base_url));
+            let mut req = self.agent.get(&format!("{}/api/mask-map", self.base_url));
             if let Some(cookie) = self.cookie_header() {
                 req = req.set("Cookie", &cookie);
             }
-            match req.call()
-            {
+            match req.call() {
                 Ok(resp) => {
                     data = resp.into_json().ok();
                     break;
