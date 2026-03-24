@@ -65,7 +65,7 @@ func RunServer() {
 
 	handler, err := server.SetupRoutes()
 	if err != nil {
-		log.Fatalf("SetupRoutes failed: %v", err)
+		log.Fatalf("Failed to setup routes: %v", err)
 	}
 	tlsCert := os.Getenv("VEILKEY_TLS_CERT")
 	tlsKey := os.Getenv("VEILKEY_TLS_KEY")

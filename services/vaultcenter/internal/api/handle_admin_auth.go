@@ -243,7 +243,7 @@ func (s *Server) handleAdminSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(req.AdminPassword) > 256 {
-		s.respondError(w, http.StatusBadRequest, "admin_password must not exceed 256 characters")
+		s.respondError(w, http.StatusBadRequest, "admin_password too long")
 		return
 	}
 	// Verify owner password (KEK)
@@ -284,7 +284,7 @@ func (s *Server) handleAdminChangePassword(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if len(req.NewAdminPassword) > 256 {
-		s.respondError(w, http.StatusBadRequest, "admin_password must not exceed 256 characters")
+		s.respondError(w, http.StatusBadRequest, "new_admin_password too long")
 		return
 	}
 	// Verify owner password (KEK) — the ONLY way to change admin password

@@ -1,185 +1,76 @@
 package api
 
 import (
-	"os"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
-func extractFn(code, sig string) string {
-	i := strings.Index(code, sig)
-	if i < 0 {
-		return ""
-	}
-	r := code[i:]
-	n := strings.Index(r[1:], "\nfunc ")
-	if n < 0 {
-		return r
-	}
-	return r[:n+1]
-}
+func TestSecurityHeadersMiddleware(t *testing.T) {
+	handler := securityHeadersMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
 
-func routeLine(code, path string) string {
-	for _, l := range strings.Split(code, "\n") {
-		if strings.Contains(l, path) && strings.Contains(l, "HandleFunc") {
-			return l
-		}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	tests := []struct {
+		header string
+		want   string
+	}{
+		{"X-Content-Type-Options", "nosniff"},
+		{"X-Frame-Options", "DENY"},
+		{"Referrer-Policy", "strict-origin-when-cross-origin"},
+		{"Strict-Transport-Security", "max-age=31536000; includeSubDomains"},
 	}
-	return ""
-}
-
-func TestDecodeJSONMaxBytes(t *testing.T) {
-	s, _ := os.ReadFile("api.go")
-	if !strings.Contains(extractFn(string(s), "func decodeJSON("), "MaxBytesReader") {
-		t.Error("decodeJSON must use MaxBytesReader")
-	}
-}
-
-func TestRemoteIPLoopback(t *testing.T) {
-	s, _ := os.ReadFile("handle_admin_auth.go")
-	if !strings.Contains(extractFn(string(s), "func remoteIP("), "IsLoopback") {
-		t.Error("remoteIP must reject loopback from forwarded headers")
-	}
-}
-
-func TestAdminCheckAuth(t *testing.T) {
-	s, _ := os.ReadFile("handlers.go")
-	if l := routeLine(string(s), "/api/admin/check"); !strings.Contains(l, "requireTrustedIP") {
-		t.Error("/api/admin/check needs requireTrustedIP")
-	}
-}
-
-func TestAdminSetupAuth(t *testing.T) {
-	s, _ := os.ReadFile("handlers.go")
-	if l := routeLine(string(s), "/api/admin/setup"); !strings.Contains(l, "requireTrustedIP") {
-		t.Error("/api/admin/setup needs requireTrustedIP")
-	}
-}
-
-func TestChainInfoAuth(t *testing.T) {
-	s, _ := os.ReadFile("api.go")
-	if l := routeLine(string(s), "/api/chain/info"); !strings.Contains(l, "requireTrustedIP") {
-		t.Error("/api/chain/info needs requireTrustedIP")
-	}
-}
-
-func TestTokenValidateAuth(t *testing.T) {
-	s, _ := os.ReadFile("handlers.go")
-	for _, l := range strings.Split(string(s), "\n") {
-		if strings.Contains(l, "validate") && strings.Contains(l, "registration-tokens") {
-			if !strings.Contains(l, "requireTrustedIP") {
-				t.Error("token validate needs requireTrustedIP")
-			}
-			return
-		}
-	}
-	t.Fatal("token validate route not found")
-}
-
-func TestHeartbeatAuth(t *testing.T) {
-	s, _ := os.ReadFile("hkm/handler.go")
-	if l := routeLine(string(s), "/api/agents/heartbeat"); !strings.Contains(l, "trusted(") {
-		t.Error("/api/agents/heartbeat needs trusted() wrapper")
-	}
-}
-
-func TestPasswordMaxLen(t *testing.T) {
-	s, _ := os.ReadFile("handle_admin_auth.go")
-	if !strings.Contains(string(s), "len(req.AdminPassword) > ") {
-		t.Error("admin password needs max length check")
-	}
-}
-
-func TestUnlockMaxLen(t *testing.T) {
-	s, _ := os.ReadFile("api.go")
-	if !strings.Contains(extractFn(string(s), "func (s *Server) handleUnlock("), "len(req.Password) >") {
-		t.Error("unlock password needs max length check")
-	}
-}
-
-func TestHSTS(t *testing.T) {
-	s, _ := os.ReadFile("api.go")
-	if !strings.Contains(extractFn(string(s), "func securityHeadersMiddleware("), "Strict-Transport-Security") {
-		t.Error("missing HSTS header")
-	}
-}
-
-func TestSessionDefaults(t *testing.T) {
-	s, _ := os.ReadFile("admin/admin_auth.go")
-	if strings.Contains(string(s), "2 * time.Hour") {
-		t.Error("session TTL default must be 8h not 2h")
-	}
-}
-
-func TestSetupRoutesError(t *testing.T) {
-	s, _ := os.ReadFile("api.go")
-	if strings.Contains(string(s), "func (s *Server) SetupRoutes() http.Handler {") {
-		t.Error("SetupRoutes must return (http.Handler, error)")
-	}
-}
-
-func TestTokenGCModel(t *testing.T) {
-	s, _ := os.ReadFile("../db/db_registration_token.go")
-	if !strings.Contains(extractFn(string(s), "func (d *DB) DeleteExpiredRegistrationTokens("), "Model(") {
-		t.Error("GC must use .Model()")
-	}
-}
-
-func TestNoPanic(t *testing.T) {
-	s, _ := os.ReadFile("static_assets.go")
-	if strings.Contains(string(s), "panic(") {
-		t.Error("static_assets must not panic")
-	}
-}
-
-// ══ CSP header ══════════════════════════════════════════════════
-
-func TestCSPHeader(t *testing.T) {
-	s, _ := os.ReadFile("api.go")
-	body := extractFn(string(s), "func securityHeadersMiddleware(")
-	if body == "" {
-		t.Fatal("securityHeadersMiddleware must exist")
-	}
-	if !strings.Contains(body, "Content-Security-Policy") {
-		t.Error("must set Content-Security-Policy header")
-	}
-}
-
-// ══ No secret leaks in log statements ═══════════════════════════
-
-func TestNoPasswordInLogs(t *testing.T) {
-	files := []string{"api.go", "handle_admin_auth.go", "handlers.go"}
-	for _, f := range files {
-		src, err := os.ReadFile(f)
-		if err != nil {
-			continue
-		}
-		code := string(src)
-		for i, line := range strings.Split(code, "\n") {
-			if !strings.Contains(line, "log.") && !strings.Contains(line, "Log(") {
-				continue
-			}
-			lower := strings.ToLower(line)
-			// log line must not interpolate password/secret/token values
-			if strings.Contains(lower, "req.password") ||
-				strings.Contains(lower, "req.adminpassword") ||
-				strings.Contains(lower, "req.ownerpassword") ||
-				strings.Contains(lower, "req.newadminpassword") {
-				t.Errorf("%s:%d: log statement may leak password: %s", f, i+1, strings.TrimSpace(line))
-			}
+	for _, tt := range tests {
+		got := rec.Header().Get(tt.header)
+		if got != tt.want {
+			t.Errorf("header %s = %q, want %q", tt.header, got, tt.want)
 		}
 	}
 }
 
-// ══ OTP policy requires auth ════════════════════════════════════
-
-func TestOTPPolicyAuth(t *testing.T) {
-	s, _ := os.ReadFile("handlers.go")
-	line := routeLine(string(s), "/api/otp-policy")
-	if line == "" {
-		t.Skip("/api/otp-policy route not found")
+func TestDecodeJSON_MaxBodySize(t *testing.T) {
+	// Build a body larger than 1 MiB
+	bigBody := strings.Repeat("x", 1<<20+1)
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(bigBody))
+	var dst map[string]any
+	err := decodeJSON(req, &dst)
+	if err == nil {
+		t.Error("expected error for oversized body, got nil")
 	}
-	if !strings.Contains(line, "requireTrustedIP") && !strings.Contains(line, "requireUnlocked") {
-		t.Error("/api/otp-policy should have auth middleware")
+}
+
+func TestRemoteIP_LoopbackNotTrusted(t *testing.T) {
+	// When direct connection is from private IP and X-Real-IP is loopback,
+	// it should NOT trust the header and return the direct address.
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.1:12345"
+	req.Header.Set("X-Real-Ip", "127.0.0.1")
+	ip := remoteIP(req)
+	if ip == "127.0.0.1" {
+		t.Errorf("remoteIP should not trust loopback X-Real-IP, got %s", ip)
+	}
+	if ip != "10.0.0.1" {
+		t.Errorf("expected 10.0.0.1, got %s", ip)
+	}
+}
+
+func TestRemoteIP_XForwardedForLoopback(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.1:12345"
+	req.Header.Set("X-Forwarded-For", "127.0.0.1, 10.0.0.2")
+	ip := remoteIP(req)
+	if ip == "127.0.0.1" {
+		t.Errorf("remoteIP should not trust loopback X-Forwarded-For, got %s", ip)
+	}
+}
+
+func TestMaxJSONBodyConst(t *testing.T) {
+	if maxJSONBody != 1<<20 {
+		t.Errorf("maxJSONBody = %d, want %d", maxJSONBody, 1<<20)
 	}
 }

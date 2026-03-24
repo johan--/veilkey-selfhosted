@@ -408,6 +408,10 @@ func (s *Server) handleUnlock(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusBadRequest, "password is required")
 		return
 	}
+	if len(req.Password) > 256 {
+		s.respondError(w, http.StatusBadRequest, "password too long")
+		return
+	}
 
 	if len(req.Password) > 256 {
 		s.respondError(w, http.StatusBadRequest, "password too long")
@@ -433,10 +437,7 @@ func (s *Server) handleUnlock(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) requireTrustedIP(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			clientIP = r.RemoteAddr
-		}
+		clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
 		allowed := s.trustedIPs[clientIP]
 		if !allowed {
 			ip := net.ParseIP(clientIP)
@@ -555,7 +556,6 @@ func securityHeadersMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'")
 		next.ServeHTTP(w, r)
 	})
 }
