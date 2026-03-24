@@ -16,7 +16,7 @@ func TestSaveFunction_Basic(t *testing.T) {
 		Command:      "echo hello",
 		VarsJSON:     "{}",
 	}
-	if err := _ = d.SaveFunction(fn); err != nil {
+	if err := d.SaveFunction(fn); err != nil {
 		t.Fatalf("SaveFunction: %v", err)
 	}
 
@@ -38,12 +38,12 @@ func TestSaveFunction_Upsert(t *testing.T) {
 		Name: "upsert-fn", Scope: "LOCAL", VaultHash: "v1",
 		FunctionHash: "h1", Command: "echo v1",
 	}
-	if err := _ = d.SaveFunction(fn); err != nil {
+	if err := d.SaveFunction(fn); err != nil {
 		t.Fatalf("SaveFunction: %v", err)
 	}
 
 	fn.Command = "echo v2"
-	if err := _ = d.SaveFunction(fn); err != nil {
+	if err := d.SaveFunction(fn); err != nil {
 		t.Fatalf("SaveFunction upsert: %v", err)
 	}
 
@@ -68,7 +68,7 @@ func TestSaveFunction_Validation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := _ = d.SaveFunction(&tc.fn); err == nil {
+			if err := d.SaveFunction(&tc.fn); err == nil {
 				t.Errorf("expected error for %s, got nil", tc.name)
 			}
 		})
@@ -81,7 +81,7 @@ func TestSaveFunction_ScopeNormalization(t *testing.T) {
 		Name: "scope-fn", Scope: "local", VaultHash: "v",
 		FunctionHash: "h", Command: "echo",
 	}
-	if err := _ = d.SaveFunction(fn); err != nil {
+	if err := d.SaveFunction(fn); err != nil {
 		t.Fatalf("SaveFunction: %v", err)
 	}
 	got, _ := d.GetFunction("scope-fn")
@@ -123,7 +123,7 @@ func TestDeleteFunction(t *testing.T) {
 		FunctionHash: "h", Command: "echo",
 	})
 
-	if err := _ = d.DeleteFunction("del-fn"); err != nil {
+	if err := d.DeleteFunction("del-fn"); err != nil {
 		t.Fatalf("DeleteFunction: %v", err)
 	}
 	if _, err := d.GetFunction("del-fn"); err == nil {
@@ -133,7 +133,7 @@ func TestDeleteFunction(t *testing.T) {
 
 func TestDeleteFunction_NotFound(t *testing.T) {
 	d := newTestDB(t)
-	if err := _ = d.DeleteFunction("nonexistent"); err == nil {
+	if err := d.DeleteFunction("nonexistent"); err == nil {
 		t.Error("expected error for nonexistent function")
 	}
 }
@@ -151,13 +151,13 @@ func TestCleanupExpiredTestFunctions(t *testing.T) {
 		Update("created_at", time.Now().Add(-2*time.Hour))
 
 	// 아직 유효한 TEST 함수
-	_ = d.SaveFunction(&Function{
+	d.SaveFunction(&Function{
 		Name: "new-test", Scope: "TEST", VaultHash: "v",
 		FunctionHash: "h2", Command: "echo",
 	})
 
 	// LOCAL 함수 (cleanup 대상 아님)
-	_ = d.SaveFunction(&Function{
+	d.SaveFunction(&Function{
 		Name: "local-fn", Scope: "LOCAL", VaultHash: "v",
 		FunctionHash: "h3", Command: "echo",
 	})
@@ -191,7 +191,7 @@ func TestCountFunctions(t *testing.T) {
 		t.Errorf("initial count = %d, want 0", count)
 	}
 
-	_ = d.SaveFunction(&Function{
+	d.SaveFunction(&Function{
 		Name: "fn1", Scope: "LOCAL", VaultHash: "v",
 		FunctionHash: "h1", Command: "echo",
 	})
@@ -203,7 +203,7 @@ func TestCountFunctions(t *testing.T) {
 
 func TestFunctionLogs(t *testing.T) {
 	d := newTestDB(t)
-	_ = d.SaveFunction(&Function{
+	d.SaveFunction(&Function{
 		Name: "log-fn", Scope: "LOCAL", VaultHash: "v",
 		FunctionHash: "hlog", Command: "echo",
 	})
