@@ -171,7 +171,7 @@ fn main() {
             let file = cmd_args.first().map(String::as_str).unwrap_or("-");
             commands::cmd_filter(file, &api_url, &log_path, patterns_file.as_deref());
         }
-        "exec" => commands::cmd_exec(&cmd_args, &api_url),
+        "exec" => commands::cmd_exec(&cmd_args, &api_url, &log_path, patterns_file.as_deref()),
         "list" => commands::cmd_list(&log_path),
         "paste-mode" => commands::cmd_paste_mode(&cmd_args),
         "clear" => commands::cmd_clear(&log_path),
