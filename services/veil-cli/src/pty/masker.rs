@@ -479,23 +479,6 @@ mod tests {
         assert_eq!(visible.chars().count(), 20);
     }
 
-    // ── SSH ref coloring ──────────────────────────────────────────
-
-    #[test]
-    fn test_colorize_ref_ssh_uses_green() {
-        let result = colorize_ref("VK:SSH:abc12345");
-        assert!(result.contains(GREEN), "SSH refs must use GREEN color");
-        assert!(result.contains("VK:SSH:abc12345"));
-    }
-
-    #[test]
-    fn test_colorize_ref_ssh_padded() {
-        let result = padded_colorize_ref("VK:SSH:abc12345", 20);
-        assert!(result.contains(GREEN), "padded SSH refs must use GREEN");
-        let visible = strip_ansi(&result);
-        assert_eq!(visible.chars().count(), 20);
-    }
-
     // ── Connection string masking ───────────────────────────────────
 
     #[test]

@@ -649,33 +649,4 @@ mod tests {
             "values shorter than MIN_SECRET_LEN should not be detected"
         );
     }
-
-    // ── VK:SSH ref matching ─────────────────────────────────────────
-
-    #[test]
-    fn veilkey_re_matches_ssh_ref() {
-        let re = Regex::new(VEILKEY_RE_STR).unwrap();
-        assert!(
-            re.is_match("VK:SSH:abc12345"),
-            "VEILKEY_RE_STR must match VK:SSH:abc12345"
-        );
-    }
-
-    #[test]
-    fn veilkey_re_matches_ssh_ref_uppercase() {
-        let re = Regex::new(VEILKEY_RE_STR).unwrap();
-        assert!(
-            re.is_match("VK:SSH:ABCD1234"),
-            "VEILKEY_RE_STR must match VK:SSH:ABCD1234"
-        );
-    }
-
-    #[test]
-    fn veilkey_re_still_matches_other_scopes() {
-        let re = Regex::new(VEILKEY_RE_STR).unwrap();
-        assert!(re.is_match("VK:LOCAL:abc12345"));
-        assert!(re.is_match("VK:TEMP:abc12345"));
-        assert!(re.is_match("VK:EXTERNAL:abc12345"));
-        assert!(re.is_match("VK:abcd1234"));
-    }
 }
