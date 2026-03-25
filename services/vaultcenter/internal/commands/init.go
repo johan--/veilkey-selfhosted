@@ -17,18 +17,22 @@ import (
 
 func RunInit() {
 	isRoot := false
+	forceInit := false
 	for i := 2; i < len(os.Args); i++ {
 		switch os.Args[i] {
 		case "--root":
 			isRoot = true
+		case "--force":
+			forceInit = true
 		case "--password":
 			log.Fatal("--password flag is no longer supported (password exposed in ps/proc). Provide password via stdin or interactive prompt.")
 		}
 	}
 
 	if !isRoot {
-		fmt.Println("Usage: veilkey-vaultcenter init --root")
+		fmt.Println("Usage: veilkey-vaultcenter init --root [--force]")
 		fmt.Println("  --root      Initialize as root node")
+		fmt.Println("  --force     Force re-initialization (WARNING: destroys existing data)")
 		fmt.Println("  Password is read from stdin (pipe) or interactive TTY prompt.")
 		os.Exit(1)
 	}
@@ -43,9 +47,28 @@ func RunInit() {
 	}
 	saltFile := filepath.Join(dataDir, "salt")
 
-	if _, err := os.Stat(saltFile); err == nil {
-		log.Fatal("Already initialized. Salt file exists: " + saltFile)
+	// Track whether salt existed before this init run, so error cleanup
+	// only removes salt files we created (never deletes pre-existing salt).
+	saltExistedBefore := fileExists(saltFile)
+
+	// Refuse to init if DB already exists (prevents accidental data loss)
+	if err := checkInitDBExists(dbPath, forceInit); err != nil {
+		log.Fatal(err)
 	}
+	if forceInit {
+		_ = os.Remove(saltFile)
+		saltExistedBefore = false // we intentionally removed it
+	}
+
+	if _, err := os.Stat(saltFile); err == nil {
+		if !forceInit {
+			log.Fatal("Already initialized. Salt file exists: " + saltFile)
+		}
+		log.Printf("WARNING: --force specified, overwriting existing salt file at %s", saltFile)
+		_ = os.Remove(saltFile)
+		saltExistedBefore = false
+	}
+	_ = saltExistedBefore // used by error paths (currently log.Fatalf exits)
 
 	password := cmdutil.ReadPassword("Enter KEK password: ")
 	stat, _ := os.Stdin.Stat()
@@ -97,6 +120,14 @@ func RunInit() {
 		log.Fatalf("Failed to save node info: %v", err)
 	}
 
+	// Store version metadata for compatibility checks on future startups
+	if err := database.SaveConfig(db.ConfigKeyBinaryVersion, productVersion()); err != nil {
+		log.Printf("Warning: failed to save binary version: %v", err)
+	}
+	if err := database.SaveConfig(db.ConfigKeyKeyDerivationVersion, CurrentKeyDerivationVersion); err != nil {
+		log.Printf("Warning: failed to save key derivation version: %v", err)
+	}
+
 	if err := os.WriteFile(saltFile, salt, 0600); err != nil {
 		log.Fatalf("Failed to save salt: %v", err)
 	}
@@ -133,4 +164,31 @@ func RunInit() {
 	fmt.Println("  If you lose your password, all encrypted data is unrecoverable.")
 	fmt.Println("  VeilKey assumes no liability for data loss due to lost passwords.")
 	fmt.Println("  Full responsibility for password custody lies with the operator.")
+}
+
+// fileExists returns true if the file at path exists (follows symlinks).
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// checkInitDBExists checks if the database file already exists.
+// If force is false and the DB exists, it returns an error.
+// If force is true and the DB exists, it removes the DB files and returns nil.
+func checkInitDBExists(dbPath string, force bool) error {
+	if _, err := os.Stat(dbPath); err != nil {
+		return nil // DB does not exist, safe to proceed
+	}
+	if !force {
+		return fmt.Errorf("ABORT: Database already exists at %s\n"+
+			"  This would destroy all existing secrets.\n"+
+			"  To force re-init, delete the file first:\n"+
+			"    rm %s %s-shm %s-wal\n"+
+			"  Or use --force flag.", dbPath, dbPath, dbPath, dbPath)
+	}
+	log.Printf("WARNING: --force specified, overwriting existing database at %s", dbPath)
+	_ = os.Remove(dbPath)
+	_ = os.Remove(dbPath + "-shm")
+	_ = os.Remove(dbPath + "-wal")
+	return nil
 }

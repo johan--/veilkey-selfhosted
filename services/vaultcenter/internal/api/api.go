@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -556,6 +557,9 @@ func (s *Server) Unlock(kek []byte) error {
 		return fmt.Errorf("invalid password (KEK decryption failed)")
 	}
 
+	// 2b. Check key derivation version compatibility
+	checkKeyDerivationVersion(database)
+
 	// 3. Set DB and unlock — double-check under write lock to prevent DB connection leak
 	s.kekMu.Lock()
 	if !s.locked {
@@ -576,6 +580,23 @@ func (s *Server) Unlock(kek []byte) error {
 	}
 
 	return nil
+}
+
+// CurrentKeyDerivationVersion must match commands.CurrentKeyDerivationVersion.
+// Increment if DeriveDBKeyFromKEK logic changes.
+const CurrentKeyDerivationVersion = "1"
+
+// checkKeyDerivationVersion logs a warning if the DB was created with a different
+// key derivation version than the current binary.
+func checkKeyDerivationVersion(database *db.DB) {
+	cfg, err := database.GetConfig(db.ConfigKeyKeyDerivationVersion)
+	if err != nil {
+		return // config not present (DB created before version tracking)
+	}
+	if cfg.Value != "" && cfg.Value != CurrentKeyDerivationVersion {
+		log.Printf("WARNING: DB was created with key derivation v%s, current binary uses v%s",
+			cfg.Value, CurrentKeyDerivationVersion)
+	}
 }
 
 func (s *Server) IsLocked() bool {
@@ -718,7 +739,21 @@ func (s *Server) SetupRoutes() (http.Handler, error) {
 	s.pluginHandler.Register(mux, s.requireTrustedIP)
 	mux.HandleFunc("POST /api/admin/tracked-refs/cleanup", s.requireReadyForOps(s.adminHandler.RequireAdminSession(s.hkmHandler.HandleTrackedRefCleanup)))
 
-	return securityHeadersMiddleware(logMiddleware(TxActorMiddleware(mux))), nil
+	return recoveryMiddleware(securityHeadersMiddleware(logMiddleware(TxActorMiddleware(mux)))), nil
+}
+
+// recoveryMiddleware catches panics in HTTP handlers, logs the stack trace,
+// and returns a 500 response instead of crashing the server.
+func recoveryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("PANIC recovered: %v\n%s", err, debug.Stack())
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 func securityHeadersMiddleware(next http.Handler) http.Handler {
