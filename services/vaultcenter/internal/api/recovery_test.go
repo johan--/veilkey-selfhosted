@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -34,7 +35,7 @@ func TestPanicRecoveryMiddleware(t *testing.T) {
 func TestPanicRecoveryLogsStack(t *testing.T) {
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
-	defer log.SetOutput(nil)
+	defer log.SetOutput(os.Stderr)
 
 	panicking := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("stack trace test")
