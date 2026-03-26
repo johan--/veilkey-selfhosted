@@ -153,7 +153,7 @@ func TestSSH_Del_Success(t *testing.T) {
 	r := sshDEL(h, "VK:SSH:d001")
 	if r.Code != 200 { t.Fatalf("status=%d body=%s", r.Code, r.Body.String()) }
 	var b map[string]any
-	json.NewDecoder(r.Body).Decode(&b)
+	_ = json.NewDecoder(r.Body).Decode(&b)
 	if b["deleted"] != "VK:SSH:d001" { t.Errorf("deleted=%v", b["deleted"]) }
 	_, c := sshParse(t, sshGET(h))
 	if c != 0 { t.Error("must be gone") }
