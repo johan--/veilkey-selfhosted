@@ -40,6 +40,13 @@ fn print_usage() {
   veilkey list                      List detected VeilKey entries
   veilkey paste-mode [mode]         Get or set pasted temp issuance mode
   veilkey clear                     Clear session log
+  veilkey health [--json]            Show agent health from VaultCenter
+  veilkey agent list [--json]        List agents from VaultCenter
+  veilkey agent archive <label>      Archive an agent
+  veilkey agent unarchive <label>    Unarchive an agent
+  veilkey config search <key>        Search config across all vaults
+  veilkey config bulk-update <k> <old> <new>  Update matching config values
+  veilkey config bulk-set <key> <val>  Set config on all agents
   veilkey traefik <sub>              Manage Traefik config (init|status|destroy)
   veilkey status                    Show status
   veilkey version                   Show version
@@ -52,6 +59,7 @@ Options:
 
 Environment:
   VEILKEY_LOCALVAULT_URL       Preferred localvault URL
+  VEILKEY_VAULTCENTER_URL      VaultCenter URL (for health/config commands)
   VEILKEY_API                  Legacy endpoint variable (fallback)
   VEILKEY_STATE_DIR            State directory (default: $TMPDIR/veilkey-cli)
 "#
@@ -88,6 +96,9 @@ fn main() {
         "status",
         "proxy",
         "paste-mode",
+        "config",
+        "health",
+        "agent",
     ];
 
     let subcmd = raw_args.get(1).map(String::as_str).unwrap_or("");
@@ -353,7 +364,8 @@ fn main() {
                         // Default: get agents list and pick the main vault's URL
                         match client.agents_list() {
                             Ok(agents) => {
-                                let active: Vec<&serde_json::Value> = agents.iter()
+                                let active: Vec<&serde_json::Value> = agents
+                                    .iter()
                                     .filter(|a| !a["archived"].as_bool().unwrap_or(false))
                                     .collect();
                                 if active.is_empty() {
@@ -414,7 +426,9 @@ fn main() {
                     match client.agents_list() {
                         Ok(agents) => {
                             for agent in &agents {
-                                if agent["archived"].as_bool().unwrap_or(false) { continue; }
+                                if agent["archived"].as_bool().unwrap_or(false) {
+                                    continue;
+                                }
                                 let ip = agent["ip"].as_str().unwrap_or("?");
                                 let port = agent["port"].as_u64().unwrap_or(10180);
                                 let url = format!("https://{}:{}", ip, port);
@@ -461,12 +475,17 @@ fn main() {
                             Ok(agents) => {
                                 let mut found_url = None;
                                 for agent in &agents {
-                                    if agent["archived"].as_bool().unwrap_or(false) { continue; }
+                                    if agent["archived"].as_bool().unwrap_or(false) {
+                                        continue;
+                                    }
                                     let ip = agent["ip"].as_str().unwrap_or("?");
                                     let port = agent["port"].as_u64().unwrap_or(10180);
                                     let url = format!("https://{}:{}", ip, port);
                                     if let Ok(secrets) = client.secret_list(&url) {
-                                        if secrets.iter().any(|s| s["name"].as_str() == Some(name.as_str())) {
+                                        if secrets
+                                            .iter()
+                                            .any(|s| s["name"].as_str() == Some(name.as_str()))
+                                        {
                                             found_url = Some(url);
                                             break;
                                         }
@@ -598,6 +617,297 @@ fn main() {
                 _ => {
                     eprintln!("Unknown ssh subcommand: {}", subcmd);
                     eprintln!("Usage: veilkey ssh <add|list> [args]");
+                    process::exit(1);
+                }
+            }
+        }
+        "health" => {
+            let vc_url = std::env::var("VEILKEY_VAULTCENTER_URL").unwrap_or_else(|_| {
+                eprintln!("ERROR: VEILKEY_VAULTCENTER_URL is required for health command.");
+                eprintln!("  export VEILKEY_VAULTCENTER_URL=<vaultcenter-url>");
+                process::exit(1);
+            });
+            let json_flag = cmd_args.iter().any(|a| a == "--json");
+            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
+                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
+            });
+            let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
+            if let Err(e) = client.admin_login(&password) {
+                eprintln!("[veilkey] login failed: {}", e);
+                process::exit(1);
+            }
+            match client.agents_list() {
+                Ok(agents) => {
+                    if json_flag {
+                        let out = serde_json::json!({ "agents": agents });
+                        println!("{}", serde_json::to_string_pretty(&out).unwrap_or_default());
+                    } else if agents.is_empty() {
+                        println!("No agents registered");
+                    } else {
+                        println!(
+                            "{:<20} {:<10} {:>8} {:<20}",
+                            "AGENT", "STATUS", "SECRETS", "LAST_SEEN"
+                        );
+                        println!("{}", "-".repeat(60));
+                        for agent in &agents {
+                            let label = agent["label"].as_str().unwrap_or("?");
+                            let archived = agent["archived"].as_bool().unwrap_or(false);
+                            let status = if archived {
+                                "archived"
+                            } else {
+                                agent["status"].as_str().unwrap_or("unknown")
+                            };
+                            let secrets = agent["secrets_count"].as_u64().unwrap_or(0);
+                            let last_seen = agent["last_seen_ago"]
+                                .as_str()
+                                .or_else(|| agent["last_heartbeat"].as_str())
+                                .unwrap_or("-");
+                            println!("{:<20} {:<10} {:>8} {}", label, status, secrets, last_seen);
+                        }
+                        println!("\nTotal: {} agent(s)", agents.len());
+                    }
+                }
+                Err(e) => {
+                    eprintln!("[veilkey] health check failed: {}", e);
+                    process::exit(1);
+                }
+            }
+        }
+        "agent" => {
+            let subcmd = cmd_args.first().map(String::as_str).unwrap_or_else(|| {
+                eprintln!("Usage: veilkey agent <list|archive|unarchive> [label]");
+                process::exit(1);
+            });
+            let vc_url = std::env::var("VEILKEY_VAULTCENTER_URL").unwrap_or_else(|_| {
+                eprintln!("ERROR: VEILKEY_VAULTCENTER_URL is required for agent commands.");
+                eprintln!("  export VEILKEY_VAULTCENTER_URL=<vaultcenter-url>");
+                process::exit(1);
+            });
+            let json_flag = cmd_args.iter().any(|a| a == "--json");
+            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
+                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
+            });
+            let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
+            if let Err(e) = client.admin_login(&password) {
+                eprintln!("[veilkey] login failed: {}", e);
+                process::exit(1);
+            }
+            match subcmd {
+                "list" => match client.agents_list() {
+                    Ok(agents) => {
+                        if json_flag {
+                            let out = serde_json::json!({ "agents": agents });
+                            println!("{}", serde_json::to_string_pretty(&out).unwrap_or_default());
+                        } else if agents.is_empty() {
+                            println!("No agents registered");
+                        } else {
+                            println!(
+                                "{:<20} {:<12} {:<10} {:>8} {:<10}",
+                                "LABEL", "NODE_ID", "STATUS", "SECRETS", "ARCHIVED"
+                            );
+                            println!("{}", "-".repeat(70));
+                            for agent in &agents {
+                                let label = agent["label"].as_str().unwrap_or("?");
+                                let node_id = agent["node_id"].as_str().unwrap_or("?");
+                                let node_short = if node_id.len() > 8 {
+                                    &node_id[..8]
+                                } else {
+                                    node_id
+                                };
+                                let status = agent["status"].as_str().unwrap_or("unknown");
+                                let secrets = agent["secrets_count"].as_u64().unwrap_or(0);
+                                let archived = agent["archived"].as_bool().unwrap_or(false);
+                                println!(
+                                    "{:<20} {:<12} {:<10} {:>8} {:<10}",
+                                    label,
+                                    node_short,
+                                    status,
+                                    secrets,
+                                    if archived { "yes" } else { "no" }
+                                );
+                            }
+                            println!("\nTotal: {} agent(s)", agents.len());
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[veilkey] agent list failed: {}", e);
+                        process::exit(1);
+                    }
+                },
+                "archive" | "unarchive" => {
+                    let label = cmd_args.get(1).map(String::as_str).unwrap_or_else(|| {
+                        eprintln!("Usage: veilkey agent {} <label>", subcmd);
+                        process::exit(1);
+                    });
+                    let agents = client.agents_list().unwrap_or_else(|e| {
+                        eprintln!("[veilkey] agent list failed: {}", e);
+                        process::exit(1);
+                    });
+                    let agent = agents
+                        .iter()
+                        .find(|a| a["label"].as_str() == Some(label))
+                        .unwrap_or_else(|| {
+                            eprintln!("[veilkey] agent '{}' not found", label);
+                            process::exit(1);
+                        });
+                    let node_id = agent["node_id"].as_str().unwrap_or_else(|| {
+                        eprintln!("[veilkey] agent '{}' missing node_id", label);
+                        process::exit(1);
+                    });
+                    let result = if subcmd == "archive" {
+                        client.agents_archive(node_id)
+                    } else {
+                        client.agents_unarchive(node_id)
+                    };
+                    match result {
+                        Ok(resp) => {
+                            if json_flag {
+                                println!(
+                                    "{}",
+                                    serde_json::to_string_pretty(&resp).unwrap_or_default()
+                                );
+                            } else {
+                                println!("[veilkey] agent '{}' → {}", label, subcmd);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[veilkey] {} failed: {}", subcmd, e);
+                            process::exit(1);
+                        }
+                    }
+                }
+                unknown => {
+                    eprintln!("Unknown agent subcommand: {}", unknown);
+                    eprintln!("Usage: veilkey agent <list|archive|unarchive> [label]");
+                    process::exit(1);
+                }
+            }
+        }
+        "config" => {
+            let vc_url = std::env::var("VEILKEY_VAULTCENTER_URL").unwrap_or_else(|_| {
+                eprintln!("ERROR: VEILKEY_VAULTCENTER_URL is required for config commands.");
+                eprintln!("  export VEILKEY_VAULTCENTER_URL=<vaultcenter-url>");
+                process::exit(1);
+            });
+            let subcmd = cmd_args.first().map(String::as_str).unwrap_or_else(|| {
+                eprintln!("Usage: veilkey config <search|bulk-update|bulk-set> [args]");
+                process::exit(1);
+            });
+            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
+                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
+            });
+            let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
+            if let Err(e) = client.admin_login(&password) {
+                eprintln!("[veilkey] login failed: {}", e);
+                process::exit(1);
+            }
+            match subcmd {
+                "search" => {
+                    let key = cmd_args.get(1).map(String::as_str).unwrap_or_else(|| {
+                        eprintln!("Usage: veilkey config search <key>");
+                        process::exit(1);
+                    });
+                    match client.configs_search(key) {
+                        Ok(result) => {
+                            if let Some(results) = result["results"].as_array() {
+                                if results.is_empty() {
+                                    println!("No configs found for '{}'", key);
+                                } else {
+                                    for entry in results {
+                                        let label = entry["label"].as_str().unwrap_or("?");
+                                        let value = entry["value"].as_str().unwrap_or("?");
+                                        println!("  {} = {}", label, value);
+                                    }
+                                    println!("\nTotal: {} agent(s)", results.len());
+                                }
+                            } else if let Some(entries) = result["entries"].as_array() {
+                                if entries.is_empty() {
+                                    println!("No configs found for '{}'", key);
+                                } else {
+                                    for entry in entries {
+                                        let agent = entry["agent"]
+                                            .as_str()
+                                            .or_else(|| entry["label"].as_str())
+                                            .unwrap_or("?");
+                                        let value = entry["value"].as_str().unwrap_or("?");
+                                        println!("  {} = {}", agent, value);
+                                    }
+                                    println!("\nTotal: {} agent(s)", entries.len());
+                                }
+                            } else {
+                                println!(
+                                    "{}",
+                                    serde_json::to_string_pretty(&result).unwrap_or_default()
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[veilkey] config search failed: {}", e);
+                            process::exit(1);
+                        }
+                    }
+                }
+                "bulk-update" => {
+                    if cmd_args.len() < 4 {
+                        eprintln!(
+                            "Usage: veilkey config bulk-update <key> <old_value> <new_value>"
+                        );
+                        process::exit(1);
+                    }
+                    let key = &cmd_args[1];
+                    let old_value = &cmd_args[2];
+                    let new_value = &cmd_args[3];
+                    match client.configs_bulk_update(key, old_value, new_value) {
+                        Ok(result) => {
+                            let updated = result["updated"].as_u64().unwrap_or(0);
+                            let total = result["total"].as_u64().unwrap_or(0);
+                            println!(
+                                "[veilkey] bulk-update: {}/{} agents updated",
+                                updated, total
+                            );
+                            if let Some(errors) = result["errors"].as_array() {
+                                for err in errors {
+                                    let agent = err["agent"].as_str().unwrap_or("?");
+                                    let msg = err["error"].as_str().unwrap_or("?");
+                                    eprintln!("  ERROR {}: {}", agent, msg);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[veilkey] bulk-update failed: {}", e);
+                            process::exit(1);
+                        }
+                    }
+                }
+                "bulk-set" => {
+                    if cmd_args.len() < 3 {
+                        eprintln!("Usage: veilkey config bulk-set <key> <value>");
+                        process::exit(1);
+                    }
+                    let key = &cmd_args[1];
+                    let value = &cmd_args[2];
+                    match client.configs_bulk_set(key, value) {
+                        Ok(result) => {
+                            let updated = result["updated"].as_u64().unwrap_or(0);
+                            let total = result["total"].as_u64().unwrap_or(0);
+                            println!("[veilkey] bulk-set: {}/{} agents updated", updated, total);
+                            if let Some(errors) = result["errors"].as_array() {
+                                for err in errors {
+                                    let agent = err["agent"].as_str().unwrap_or("?");
+                                    let msg = err["error"].as_str().unwrap_or("?");
+                                    eprintln!("  ERROR {}: {}", agent, msg);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[veilkey] bulk-set failed: {}", e);
+                            process::exit(1);
+                        }
+                    }
+                }
+                unknown => {
+                    eprintln!("Unknown config subcommand: {}", unknown);
+                    eprintln!("Usage: veilkey config <search|bulk-update|bulk-set> [args]");
                     process::exit(1);
                 }
             }
