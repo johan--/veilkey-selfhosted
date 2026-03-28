@@ -15,6 +15,7 @@ type SyncDeps interface {
 	FindAgentURL(hashOrLabel string) (string, error)
 	HTTPClient() *http.Client
 	ResolveTemplateValue(vaultHash, kind, name string) (string, bool)
+	ResolveTemplateRef(vaultHash, kind, name string) (string, bool)
 }
 
 type Handler struct {
@@ -207,7 +208,12 @@ func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "render validation failed")
 		return
 	}
-	output := h.resolvePlaceholders(vault, rendered.Output)
+	resolveAsRef := strings.EqualFold(rendered.ResolveMode, "ref")
+	output := h.resolvePlaceholders(vault, rendered.Output, resolveAsRef)
+	runtimeOutput := output
+	if resolveAsRef {
+		runtimeOutput = h.resolvePlaceholders(vault, rendered.Output, false)
+	}
 
 	var (
 		paths []string
@@ -265,13 +271,19 @@ func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request) {
 		})
 	} else {
 		hook := sortedHooks[0]
-		steps = append(steps, map[string]any{
+		step := map[string]any{
 			"name":        hook.Name,
 			"format":      "raw",
 			"target_path": paths[0],
 			"content":     output,
 			"hook":        hook.Name,
-		})
+		}
+		if resolveAsRef {
+			step["hook_env"] = map[string]string{
+				"VEILKEY_RUNTIME_ENV_CONTENT": runtimeOutput,
+			}
+		}
+		steps = append(steps, step)
 		hookNames = append(hookNames, hook.Name)
 	}
 	payload, _ := json.Marshal(map[string]any{"name": "plugin-sync", "steps": steps})
@@ -356,7 +368,7 @@ func (h *Handler) registerDomainsFromSync(vault string, input map[string]any) {
 	}
 }
 
-func (h *Handler) resolvePlaceholders(vault, text string) string {
+func (h *Handler) resolvePlaceholders(vault, text string, asRef bool) string {
 	if h.sync == nil {
 		return text
 	}
@@ -383,7 +395,15 @@ func (h *Handler) resolvePlaceholders(vault, text string) string {
 		case "ve":
 			kind = "config"
 		}
-		resolved, ok := h.sync.ResolveTemplateValue(vault, kind, parts[1])
+		var (
+			resolved string
+			ok       bool
+		)
+		if asRef {
+			resolved, ok = h.sync.ResolveTemplateRef(vault, kind, parts[1])
+		} else {
+			resolved, ok = h.sync.ResolveTemplateValue(vault, kind, parts[1])
+		}
 		if ok {
 			result = result[:start] + resolved + result[start+end+3:]
 		} else {

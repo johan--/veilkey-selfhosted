@@ -42,8 +42,9 @@ type RenderRequest struct {
 
 // RenderResult is returned by plugin_render().
 type RenderResult struct {
-	Output string `json:"output"`
-	Error  string `json:"error,omitempty"`
+	Output      string `json:"output"`
+	ResolveMode string `json:"resolve_mode,omitempty"`
+	Error       string `json:"error,omitempty"`
 }
 
 // PluginManifest is the on-disk metadata stored alongside .wasm files.

@@ -1821,13 +1821,13 @@ mod same_width_tests {
     // ── Cross-chunk erase + same-width ──────────────────────────
     #[test]
     fn cc_erase_same_width() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         let r = find_cross_chunk_mask("(VEIL) $ Ghdrhkdgh1", "@", &map).unwrap();
-        assert!(!r.output.contains("Ghdrhkdgh1@"));
+        assert!(!r.output.contains("MaskingExamplePass!42"));
     }
     #[test]
     fn cc_no_vkloc_fragments() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         let r = find_cross_chunk_mask("$ Ghdrhkdg", "h1@", &map).unwrap();
         let v = strip_ansi(&r.output);
         assert!(!v.contains("VK:6dVK:"), "no VK:LOC fragments: [{}]", v);
@@ -1841,7 +1841,7 @@ mod same_width_tests {
     }
     #[test]
     fn cc_skip_down_arrow() {
-        let m = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let m = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         assert!(find_cross_chunk_mask("tail", "\x1b[B\x1b[2K", &m).is_none());
     }
     #[test]
@@ -1853,13 +1853,13 @@ mod same_width_tests {
     // ── Repeated invocations ────────────────────────────────────
     #[test]
     fn cc_repeated_10x() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         let mut tail = String::new();
         for i in 0..10 {
             tail.push_str("(VEIL) $ ");
             let r = find_cross_chunk_mask(&format!("{}Ghdrhkdgh1", tail), "@\r", &map);
             assert!(r.is_some(), "#{}", i);
-            tail.push_str("Ghdrhkdgh1@\nbash: VK:6da25530: not found\n");
+            tail.push_str("MaskingExamplePass!42\nbash: VK:6da25530: not found\n");
             if tail.len() > 4096 {
                 tail = tail[tail.len() - 4096..].to_string();
             }
@@ -1872,7 +1872,7 @@ mod same_width_tests {
         let mut map: Vec<(String, String)> = (0..102)
             .map(|i| (format!("other_{:04}", i), format!("VK:LOCAL:{:08x}", i)))
             .collect();
-        map.push(("Ghdrhkdgh1@".into(), "VK:LOCAL:6da25530".into()));
+        map.push(("MaskingExamplePass!42".into(), "VK:LOCAL:6da25530".into()));
         let r = find_cross_chunk_mask("$ Ghdrhkdgh1", "@", &map);
         assert!(r.is_some());
     }
@@ -1880,9 +1880,9 @@ mod same_width_tests {
     // ── Security ────────────────────────────────────────────────
     #[test]
     fn sec_no_plaintext() {
-        let m = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let m = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         let r = find_cross_chunk_mask("$ Ghdrhkdgh1", "@\r", &m).unwrap();
-        assert!(!r.output.contains("Ghdrhkdgh1@"));
+        assert!(!r.output.contains("MaskingExamplePass!42"));
     }
     #[test]
     fn sec_empty_map() {
@@ -2707,7 +2707,7 @@ mod re_masking_tests {
     /// contains a VK: ref — it's already masked output.
     #[test]
     fn already_masked_ref_not_re_masked() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         // Readline recalls history line containing already-masked ref
         let (out, _) = call("bash: VK:LOCAL:6da25530: not found", &map, "", "");
         let v = strip(&out);
@@ -2722,7 +2722,7 @@ mod re_masking_tests {
     /// Arrow up shows previous command with masked ref — must stay full
     #[test]
     fn arrow_recall_preserves_full_ref() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         // First: bash error outputs full ref
         let (out1, tail) = call("bash: VK:LOCAL:6da25530: not found\n", &map, "", "");
         let v1 = strip(&out1);
@@ -2745,7 +2745,7 @@ mod re_masking_tests {
     /// Text starting with "VK:" must not be treated as a secret
     #[test]
     fn vk_prefix_text_not_masked() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         let (out, _) = call("VK:LOCAL:6da25530 is a reference", &map, "", "");
         let v = strip(&out);
         assert!(
@@ -2779,7 +2779,7 @@ mod re_masking_tests {
     /// Compact VK ref (VK:hash) in output must not be further truncated
     #[test]
     fn compact_ref_not_further_truncated() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         // Even if compact form appears, it must not become shorter
         let (out, _) = call("VK:6da25530", &map, "", "");
         let v = strip(&out);
@@ -2921,10 +2921,10 @@ mod masking_robustness_tests {
     /// Secret in bash error must be masked
     #[test]
     fn bash_error_masked() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
-        let (out, _) = call("bash: Ghdrhkdgh1@: not found\n", &map, "", "");
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
+        let (out, _) = call("bash: MaskingExamplePass!42: not found\n", &map, "", "");
         let v = strip(&out);
-        assert!(!v.contains("Ghdrhkdgh1@"), "bash error leaked: {}", v);
+        assert!(!v.contains("MaskingExamplePass!42"), "bash error leaked: {}", v);
     }
 
     /// Secret in cat output must be masked
@@ -2983,11 +2983,11 @@ mod masking_robustness_tests {
     /// 10 rounds of error + arrow must not produce VK:LOC
     #[test]
     fn no_vkloc_10_rounds() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         let mut combined = String::new();
         let mut tail = String::new();
         for _ in 0..10 {
-            let (raw, t) = call("bash: Ghdrhkdgh1@: err\n", &map, "", &tail);
+            let (raw, t) = call("bash: MaskingExamplePass!42: err\n", &map, "", &tail);
             tail = t;
             combined += &strip(&raw);
             let (_, t) = call("\x1b[A", &map, "", &tail);
@@ -3005,15 +3005,15 @@ mod masking_robustness_tests {
     /// Rapid arrows
     #[test]
     fn rapid_arrows_safe() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         let mut tail = String::new();
         for arrow in ["\x1b[A", "\x1b[B", "\x1b[A", "\x1b[B", "\x1b[A"] {
             let (_, t) = call(arrow, &map, "", &tail);
             tail = t;
         }
-        let (raw, _) = call("bash: Ghdrhkdgh1@: err\n", &map, "", &tail);
+        let (raw, _) = call("bash: MaskingExamplePass!42: err\n", &map, "", &tail);
         let v = strip(&raw);
-        assert!(!v.contains("Ghdrhkdgh1@"), "after rapid arrows: {}", v);
+        assert!(!v.contains("MaskingExamplePass!42"), "after rapid arrows: {}", v);
     }
 
     // ═══ Edge cases ═══
@@ -3046,7 +3046,7 @@ mod masking_robustness_tests {
     /// Backspace in input
     #[test]
     fn backspace_safe() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         let (_, _) = call("Ghdrhk\x08dgh1@", &map, "", "");
         // No crash
     }
@@ -3054,7 +3054,7 @@ mod masking_robustness_tests {
     /// Ctrl+C
     #[test]
     fn ctrl_c_safe() {
-        let map = mk(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
+        let map = mk(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
         let (_, _) = call("Ghdrhk^C\n", &map, "", "");
         // No crash
     }

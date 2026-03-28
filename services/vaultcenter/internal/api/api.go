@@ -344,6 +344,22 @@ func (s *Server) ResolveTemplateValue(vaultHash, kind, name string) (string, boo
 	return s.resolveBulkApplyConfigValue(agentURL, agentSecret, name)
 }
 
+func (s *Server) ResolveTemplateRef(vaultHash, kind, name string) (string, bool) {
+	agent, err := s.FindAgentRecord(vaultHash)
+	if err != nil {
+		return "", false
+	}
+	if agent.BlockedAt != nil || agent.RebindRequired {
+		return "", false
+	}
+	agentURL := s.AgentURL(agent.IP, agent.Port)
+	agentSecret := s.decryptAgentSecret(agent.AgentSecretEnc, agent.AgentSecretNonce)
+	if kind == "secret" {
+		return s.resolveBulkApplySecretRef(agentURL, agentSecret, name)
+	}
+	return s.resolveBulkApplyConfigRef(name)
+}
+
 func (s *Server) resolveBulkApplySecretValue(agentURL, agentSecret string, encDEK, encNonce []byte, name string) (string, bool) {
 	// Resolve name → ref via agent's secret meta endpoint.
 	ref := name
@@ -393,6 +409,50 @@ func (s *Server) resolveBulkApplySecretValue(agentURL, agentSecret string, encDE
 		return "", false
 	}
 	return data.Value, strings.TrimSpace(data.Value) != ""
+}
+
+func (s *Server) resolveBulkApplySecretRef(agentURL, agentSecret, name string) (string, bool) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", false
+	}
+	if strings.HasPrefix(name, "VK:LOCAL:") || strings.HasPrefix(name, "VK:EXTERNAL:") {
+		return name, true
+	}
+	resp, err := s.agentGET(agentURL, httputil.AgentPathSecretMeta+"/"+name, agentSecret)
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", false
+	}
+	var data struct {
+		Ref   string `json:"ref"`
+		Token string `json:"token"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&data) != nil {
+		return "", false
+	}
+	ref := strings.TrimSpace(data.Ref)
+	if ref == "" {
+		ref = strings.TrimSpace(data.Token)
+	}
+	if ref != "" && !strings.Contains(ref, ":") {
+		ref = "VK:LOCAL:" + ref
+	}
+	return ref, ref != ""
+}
+
+func (s *Server) resolveBulkApplyConfigRef(key string) (string, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", false
+	}
+	if strings.HasPrefix(key, "VE:LOCAL:") {
+		return key, true
+	}
+	return "VE:LOCAL:" + key, true
 }
 
 // uniqueStrings returns a deduplicated slice preserving order.

@@ -10,6 +10,42 @@ use crate::state::{current_paste_mode, set_paste_mode};
 
 const SCAN_PREVIEW_LEN: usize = 8;
 
+fn read_secret(file_env: &str, value_env: &str, prompt: &str) -> String {
+    if let Ok(path) = std::env::var(file_env) {
+        if !path.trim().is_empty() {
+            return std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| {
+                    eprintln!("ERROR: cannot read {}: {}", path, e);
+                    process::exit(1);
+                })
+                .trim_end_matches(['\r', '\n'])
+                .to_string();
+        }
+    }
+    if let Ok(password) = std::env::var(value_env) {
+        if !password.is_empty() {
+            return password;
+        }
+    }
+    rpassword::prompt_password(prompt).unwrap_or_default()
+}
+
+pub fn read_admin_password() -> String {
+    read_secret(
+        "VEILKEY_PASSWORD_FILE",
+        "VEILKEY_PASSWORD",
+        "VeilKey password: ",
+    )
+}
+
+pub fn read_master_password() -> String {
+    read_secret(
+        "VEILKEY_MASTER_PASSWORD_FILE",
+        "VEILKEY_MASTER_PASSWORD",
+        "Master password (unlock): ",
+    )
+}
+
 fn process_stream(detector: &mut SecretDetector, r: impl Read) {
     let reader = io::BufReader::new(r);
     for line in reader.lines() {
@@ -610,8 +646,7 @@ pub fn cmd_plugin(args: &[String], api_url: &str, _log_path: &str, _patterns_fil
 
 fn plugin_list(api_url: &str) {
     let client = VeilKeyClient::new(api_url);
-    let password = std::env::var("VEILKEY_PASSWORD")
-        .unwrap_or_else(|_| rpassword::prompt_password("VeilKey password: ").unwrap_or_default());
+    let password = read_admin_password();
     if let Err(e) = client.admin_login(&password) {
         eprintln!("[veilkey] login failed: {}", e);
         process::exit(1);
@@ -734,8 +769,7 @@ fn plugin_sync(args: &[String], api_url: &str) {
     });
 
     let client = VeilKeyClient::new(api_url);
-    let password = std::env::var("VEILKEY_PASSWORD")
-        .unwrap_or_else(|_| rpassword::prompt_password("VeilKey password: ").unwrap_or_default());
+    let password = read_admin_password();
     if let Err(e) = client.admin_login(&password) {
         eprintln!("[veilkey] login failed: {}", e);
         process::exit(1);
