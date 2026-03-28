@@ -21,8 +21,13 @@ func TestDockerComposeSyncPlugin(t *testing.T) {
 	t.Run("init_custom_dir", func(t *testing.T) {
 		r, _ := inst.Init(ctx, map[string]any{"service_dir": "/opt/activepieces", "project": "activepieces"})
 		found := false
-		for _, p := range r.Paths { if strings.Contains(p, "activepieces") { found = true } }
+		for _, p := range r.Paths {
+			if strings.Contains(p, "activepieces") {
+				found = true
+			}
+		}
 		if !found { t.Errorf("paths = %v", r.Paths) }
+		if r.Paths[0] != "/opt/activepieces/.env.veil" { t.Errorf("env ref path = %q", r.Paths[0]) }
 		if r.Hooks[0].Name != "recreate_activepieces" { t.Errorf("hook = %q", r.Hooks[0].Name) }
 	})
 	t.Run("validate_env_ok", func(t *testing.T) {
@@ -38,5 +43,6 @@ func TestDockerComposeSyncPlugin(t *testing.T) {
 			"vars": map[string]any{"AP_DB_PASSWORD": "VK:LOCAL:db-pw", "AP_FRONTEND_URL": "http://10.50.0.103:8080"},
 		})
 		if !strings.Contains(r.Output, "AP_DB_PASSWORD=VK:LOCAL:db-pw") { t.Error("missing var") }
+		if r.ResolveMode != "ref" { t.Errorf("resolve_mode = %q", r.ResolveMode) }
 	})
 }

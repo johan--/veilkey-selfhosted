@@ -20,7 +20,7 @@ if [ "$STATUS" = "True" ]; then
 fi
 
 PWFILE=$(mktemp)
-echo "Ghdrhkdgh1@" > "$PWFILE"
+echo "MaskingExamplePass!42" > "$PWFILE"
 export VEILKEY_PASSWORD_FILE="$PWFILE"
 
 FAIL=0
@@ -31,7 +31,7 @@ OUTPUT=$(python3 -c "
 import subprocess, os, time, pty, select, re
 master, slave = pty.openpty()
 proc = subprocess.Popen(
-    ['/usr/local/bin/veilkey-cli', 'wrap-pty', 'bash', '-c', 'echo Ghdrhkdgh1@; exit'],
+    ['/usr/local/bin/veilkey-cli', 'wrap-pty', 'bash', '-c', 'echo MaskingExamplePass!42; exit'],
     stdin=slave, stdout=slave, stderr=slave, close_fds=True, env=os.environ.copy()
 )
 os.close(slave)
@@ -87,7 +87,7 @@ def drain(t=2):
             except: break
     return buf
 time.sleep(3); drain(2)
-os.write(master, b'Ghdrhkdgh1@\n'); time.sleep(1); drain(2)
+os.write(master, b'MaskingExamplePass!42\n'); time.sleep(1); drain(2)
 for _ in range(5):
     os.write(master, b'\x1b[A'); time.sleep(0.05)
 for _ in range(3):

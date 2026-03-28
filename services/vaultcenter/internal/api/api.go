@@ -261,7 +261,7 @@ func (s *Server) FindAgentRecord(hashOrLabel string) (*db.Agent, error) {
 }
 
 func (s *Server) FetchAgentCiphertext(agentURL, ref string) (name string, ciphertext []byte, nonce []byte, err error) {
-	resp, httpErr := s.httpClient.Get(httputil.JoinPath(agentURL, httputil.AgentPathCipher, ref))
+	resp, httpErr := s.agentGET(agentURL, httputil.AgentPathCipher+"/"+ref, "")
 	if httpErr != nil {
 		return "", nil, nil, fmt.Errorf("agent unreachable: %w", httpErr)
 	}
@@ -278,6 +278,37 @@ func (s *Server) FetchAgentCiphertext(agentURL, ref string) (name string, cipher
 		return "", nil, nil, fmt.Errorf("invalid agent response: %w", decErr)
 	}
 	return data.Name, data.Ciphertext, data.Nonce, nil
+}
+
+func (s *Server) fetchAgentCiphertextAuthorized(agentURL, ref, agentSecret string) (name string, ciphertext []byte, nonce []byte, err error) {
+	resp, httpErr := s.agentGET(agentURL, httputil.AgentPathCipher+"/"+ref, agentSecret)
+	if httpErr != nil {
+		return "", nil, nil, fmt.Errorf("agent unreachable: %w", httpErr)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", nil, nil, fmt.Errorf("agent returned %d", resp.StatusCode)
+	}
+	var data struct {
+		Name       string `json:"name"`
+		Ciphertext []byte `json:"ciphertext"`
+		Nonce      []byte `json:"nonce"`
+	}
+	if decErr := json.NewDecoder(resp.Body).Decode(&data); decErr != nil {
+		return "", nil, nil, fmt.Errorf("invalid agent response: %w", decErr)
+	}
+	return data.Name, data.Ciphertext, data.Nonce, nil
+}
+
+func (s *Server) agentGET(agentURL, path, agentSecret string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, httputil.JoinPath(agentURL, path), nil)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(agentSecret) != "" {
+		req.Header.Set("Authorization", "Bearer "+agentSecret)
+	}
+	return s.httpClient.Do(req)
 }
 
 func (s *Server) AgentURL(ip string, port int) string {
@@ -306,16 +337,33 @@ func (s *Server) ResolveTemplateValue(vaultHash, kind, name string) (string, boo
 		return "", false
 	}
 	agentURL := s.AgentURL(agent.IP, agent.Port)
+	agentSecret := s.decryptAgentSecret(agent.AgentSecretEnc, agent.AgentSecretNonce)
 	if kind == "secret" {
-		return s.resolveBulkApplySecretValue(agentURL, agent.DEK, agent.DEKNonce, name)
+		return s.resolveBulkApplySecretValue(agentURL, agentSecret, agent.DEK, agent.DEKNonce, name)
 	}
-	return s.resolveBulkApplyConfigValue(agentURL, name)
+	return s.resolveBulkApplyConfigValue(agentURL, agentSecret, name)
 }
 
-func (s *Server) resolveBulkApplySecretValue(agentURL string, encDEK, encNonce []byte, name string) (string, bool) {
+func (s *Server) ResolveTemplateRef(vaultHash, kind, name string) (string, bool) {
+	agent, err := s.FindAgentRecord(vaultHash)
+	if err != nil {
+		return "", false
+	}
+	if agent.BlockedAt != nil || agent.RebindRequired {
+		return "", false
+	}
+	agentURL := s.AgentURL(agent.IP, agent.Port)
+	agentSecret := s.decryptAgentSecret(agent.AgentSecretEnc, agent.AgentSecretNonce)
+	if kind == "secret" {
+		return s.resolveBulkApplySecretRef(agentURL, agentSecret, name)
+	}
+	return s.resolveBulkApplyConfigRef(name)
+}
+
+func (s *Server) resolveBulkApplySecretValue(agentURL, agentSecret string, encDEK, encNonce []byte, name string) (string, bool) {
 	// Resolve name → ref via agent's secret meta endpoint.
 	ref := name
-	if metaResp, metaErr := s.httpClient.Get(httputil.JoinPath(agentURL, httputil.AgentPathSecretMeta, name)); metaErr == nil {
+	if metaResp, metaErr := s.agentGET(agentURL, httputil.AgentPathSecretMeta+"/"+name, agentSecret); metaErr == nil {
 		defer metaResp.Body.Close()
 		if metaResp.StatusCode == 200 {
 			var meta struct {
@@ -335,7 +383,7 @@ func (s *Server) resolveBulkApplySecretValue(agentURL string, encDEK, encNonce [
 
 	// Try fetching ciphertext by resolved ref.
 	for _, candidate := range uniqueStrings(ref, name) {
-		_, ciphertext, nonce, err := s.FetchAgentCiphertext(agentURL, candidate)
+		_, ciphertext, nonce, err := s.fetchAgentCiphertextAuthorized(agentURL, candidate, agentSecret)
 		if err != nil {
 			continue
 		}
@@ -346,7 +394,7 @@ func (s *Server) resolveBulkApplySecretValue(agentURL string, encDEK, encNonce [
 	}
 
 	// Last resort: agent's own resolve endpoint.
-	resp, resolveErr := s.httpClient.Get(httputil.JoinPath(agentURL, httputil.AgentPathResolve, name))
+	resp, resolveErr := s.agentGET(agentURL, httputil.AgentPathResolve+"/"+name, agentSecret)
 	if resolveErr != nil {
 		return "", false
 	}
@@ -363,6 +411,50 @@ func (s *Server) resolveBulkApplySecretValue(agentURL string, encDEK, encNonce [
 	return data.Value, strings.TrimSpace(data.Value) != ""
 }
 
+func (s *Server) resolveBulkApplySecretRef(agentURL, agentSecret, name string) (string, bool) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", false
+	}
+	if strings.HasPrefix(name, "VK:LOCAL:") || strings.HasPrefix(name, "VK:EXTERNAL:") {
+		return name, true
+	}
+	resp, err := s.agentGET(agentURL, httputil.AgentPathSecretMeta+"/"+name, agentSecret)
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", false
+	}
+	var data struct {
+		Ref   string `json:"ref"`
+		Token string `json:"token"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&data) != nil {
+		return "", false
+	}
+	ref := strings.TrimSpace(data.Ref)
+	if ref == "" {
+		ref = strings.TrimSpace(data.Token)
+	}
+	if ref != "" && !strings.Contains(ref, ":") {
+		ref = "VK:LOCAL:" + ref
+	}
+	return ref, ref != ""
+}
+
+func (s *Server) resolveBulkApplyConfigRef(key string) (string, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", false
+	}
+	if strings.HasPrefix(key, "VE:LOCAL:") {
+		return key, true
+	}
+	return "VE:LOCAL:" + key, true
+}
+
 // uniqueStrings returns a deduplicated slice preserving order.
 func uniqueStrings(vals ...string) []string {
 	seen := map[string]struct{}{}
@@ -377,8 +469,8 @@ func uniqueStrings(vals ...string) []string {
 	return out
 }
 
-func (s *Server) resolveBulkApplyConfigValue(agentURL, key string) (string, bool) {
-	resp, err := s.httpClient.Get(httputil.JoinPath(agentURL, httputil.AgentPathConfigs, key))
+func (s *Server) resolveBulkApplyConfigValue(agentURL, agentSecret, key string) (string, bool) {
+	resp, err := s.agentGET(agentURL, httputil.AgentPathConfigs+"/"+key, agentSecret)
 	if err != nil {
 		return "", false
 	}

@@ -15,6 +15,7 @@ type SyncDeps interface {
 	FindAgentURL(hashOrLabel string) (string, error)
 	HTTPClient() *http.Client
 	ResolveTemplateValue(vaultHash, kind, name string) (string, bool)
+	ResolveTemplateRef(vaultHash, kind, name string) (string, bool)
 }
 
 type Handler struct {
@@ -207,8 +208,28 @@ func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "render validation failed")
 		return
 	}
-	output := h.resolvePlaceholders(vault, rendered.Output)
-	paths, _ := inst.Paths(ctx)
+	resolveAsRef := strings.EqualFold(rendered.ResolveMode, "ref")
+	output := h.resolvePlaceholders(vault, rendered.Output, resolveAsRef)
+	runtimeOutput := output
+	if resolveAsRef {
+		runtimeOutput = h.resolvePlaceholders(vault, rendered.Output, false)
+	}
+
+	var (
+		paths []string
+		hooks []HookDef
+	)
+	if initResult, initErr := inst.Init(ctx, input.Input); initErr != nil {
+		log.Printf("plugin sync init %s: %v", name, initErr)
+		respondError(w, http.StatusInternalServerError, "plugin init failed")
+		return
+	} else if initResult != nil {
+		paths = append(paths, initResult.Paths...)
+		hooks = append(hooks, initResult.Hooks...)
+	}
+	if len(paths) == 0 {
+		paths, _ = inst.Paths(ctx)
+	}
 	if len(paths) == 0 {
 		respondError(w, http.StatusInternalServerError, "no target paths")
 		return
@@ -218,7 +239,9 @@ func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadRequest, "validation failed")
 		return
 	}
-	hooks, _ := inst.Hooks(ctx)
+	if len(hooks) == 0 {
+		hooks, _ = inst.Hooks(ctx)
+	}
 	sortedHooks, sortErr := SortHooks(hooks)
 	if sortErr != nil {
 		log.Printf("plugin sync hook sort %s: %v", name, sortErr)
@@ -231,12 +254,37 @@ func (h *Handler) handleSync(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusBadGateway, "vault not reachable")
 		return
 	}
-	// Build steps: one content step + sorted hooks
-	steps := []any{map[string]any{"name": "plugin-sync", "format": "raw", "target_path": paths[0], "content": output}}
+	// LocalVault bulk-apply validates every step as a file write, so hooks must be
+	// attached to a content-bearing step instead of being emitted as hook-only steps.
+	stepCap := len(sortedHooks)
+	if stepCap == 0 {
+		stepCap = 1
+	}
+	steps := make([]any, 0, stepCap)
 	var hookNames []string
-	for _, h := range sortedHooks {
-		steps = append(steps, map[string]any{"name": h.Name, "hook": h.Name})
-		hookNames = append(hookNames, h.Name)
+	if len(sortedHooks) == 0 {
+		steps = append(steps, map[string]any{
+			"name":        "plugin-sync",
+			"format":      "raw",
+			"target_path": paths[0],
+			"content":     output,
+		})
+	} else {
+		hook := sortedHooks[0]
+		step := map[string]any{
+			"name":        hook.Name,
+			"format":      "raw",
+			"target_path": paths[0],
+			"content":     output,
+			"hook":        hook.Name,
+		}
+		if resolveAsRef {
+			step["hook_env"] = map[string]string{
+				"VEILKEY_RUNTIME_ENV_CONTENT": runtimeOutput,
+			}
+		}
+		steps = append(steps, step)
+		hookNames = append(hookNames, hook.Name)
 	}
 	payload, _ := json.Marshal(map[string]any{"name": "plugin-sync", "steps": steps})
 	syncReq, _ := http.NewRequest("POST", strings.TrimRight(agentURL, "/")+"/api/bulk-apply/execute", bytes.NewReader(payload))
@@ -320,7 +368,7 @@ func (h *Handler) registerDomainsFromSync(vault string, input map[string]any) {
 	}
 }
 
-func (h *Handler) resolvePlaceholders(vault, text string) string {
+func (h *Handler) resolvePlaceholders(vault, text string, asRef bool) string {
 	if h.sync == nil {
 		return text
 	}
@@ -347,7 +395,15 @@ func (h *Handler) resolvePlaceholders(vault, text string) string {
 		case "ve":
 			kind = "config"
 		}
-		resolved, ok := h.sync.ResolveTemplateValue(vault, kind, parts[1])
+		var (
+			resolved string
+			ok       bool
+		)
+		if asRef {
+			resolved, ok = h.sync.ResolveTemplateRef(vault, kind, parts[1])
+		} else {
+			resolved, ok = h.sync.ResolveTemplateValue(vault, kind, parts[1])
+		}
 		if ok {
 			result = result[:start] + resolved + result[start+end+3:]
 		} else {

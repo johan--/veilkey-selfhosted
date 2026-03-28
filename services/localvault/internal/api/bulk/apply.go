@@ -19,6 +19,7 @@ type bulkApplyStep struct {
 	TargetPath string `json:"target_path"`
 	Content    string `json:"content"`
 	Hook       string `json:"hook"`
+	HookEnv    map[string]string `json:"hook_env,omitempty"`
 }
 
 type bulkApplyWorkflowRequest struct {
@@ -251,17 +252,52 @@ func applyBulkApplyStep(step bulkApplyStep, registry *FormatRegistry) error {
 	return provider.Apply(step.TargetPath, step.Content)
 }
 
-func runAllowedHook(name string) (string, error) {
+func runAllowedHook(name string, envVars map[string]string) (string, error) {
 	cmdv, ok := getAllowedBulkApplyHook(name)
 	if !ok {
 		return "", fmt.Errorf("hook is not allowed: %s", name)
 	}
 	cmd := exec.Command(cmdv[0], cmdv[1:]...)
+	cmd.Env = os.Environ()
+	for key, value := range envVars {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return strings.TrimSpace(string(out)), fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+func hookEnv(req bulkApplyWorkflowRequest, hook string) map[string]string {
+	payload := make([]map[string]string, 0, len(req.Steps))
+	targets := make([]string, 0, len(req.Steps))
+	envVars := map[string]string{}
+	for _, step := range req.Steps {
+		if strings.TrimSpace(step.Hook) != strings.TrimSpace(hook) {
+			continue
+		}
+		payload = append(payload, map[string]string{
+			"name":        step.Name,
+			"format":      step.Format,
+			"target_path": step.TargetPath,
+			"hook":        step.Hook,
+		})
+		targets = append(targets, step.TargetPath)
+		for key, value := range step.HookEnv {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			envVars[key] = value
+		}
+	}
+	payloadJSON, _ := json.Marshal(payload)
+	envVars["VEILKEY_BULK_APPLY_WORKFLOW"] = req.Name
+	envVars["VEILKEY_BULK_APPLY_HOOK"] = hook
+	envVars["VEILKEY_BULK_APPLY_STEPS_JSON"] = string(payloadJSON)
+	envVars["VEILKEY_BULK_APPLY_TARGET_PATHS"] = strings.Join(targets, ":")
+	return envVars
 }
 
 func orderedHooks(steps []bulkApplyStep) []string {
@@ -525,7 +561,7 @@ func (h *Handler) handleBulkApplyExecute(w http.ResponseWriter, r *http.Request)
 		})
 	}
 	for _, hook := range hooks {
-		output, err := runAllowedHook(hook)
+		output, err := runAllowedHook(hook, hookEnv(req, hook))
 		hookRow := map[string]any{
 			"name":   hook,
 			"status": "ok",

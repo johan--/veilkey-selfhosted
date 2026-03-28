@@ -19,6 +19,15 @@ fn resolve_api_url() -> Option<String> {
     None
 }
 
+fn resolve_vaultcenter_url() -> Option<String> {
+    if let Ok(v) = std::env::var("VEILKEY_VAULTCENTER_URL") {
+        if !v.is_empty() {
+            return Some(v);
+        }
+    }
+    None
+}
+
 fn print_usage() {
     eprintln!(
         r#"Usage:
@@ -29,6 +38,7 @@ fn print_usage() {
   veilkey wrap-pty [command]        Interactive PTY + auto-replace (default: bash)
   veilkey exec <command...>         Resolve VK: hashes + run command
   veilkey create [value]            Create a temp ref (VK:TEMP:xxx)
+  veilkey unlock                    Unlock VaultCenter with the master password
   veilkey resolve <VK:ref>          Decrypt and print a VeilKey reference
   veilkey secret add <name> [val]   Create + promote to vault (one step)
   veilkey secret list [--vault url] List secrets in vault
@@ -52,6 +62,8 @@ fn print_usage() {
   veilkey cleanup [--json]          Clean up stale tracked refs
   veilkey ref-audit [--json]        Audit tracked refs
   veilkey inventory [--json]        Show vault inventory
+  veilkey plugin list               List installed plugins
+  veilkey plugin sync ...           Run plugin sync against a vault
   veilkey traefik <sub>              Manage Traefik config (init|status|destroy)
   veilkey status                    Show status
   veilkey version                   Show version
@@ -66,6 +78,8 @@ Environment:
   VEILKEY_LOCALVAULT_URL       Preferred localvault URL
   VEILKEY_VAULTCENTER_URL      VaultCenter URL (for health/config commands)
   VEILKEY_API                  Legacy endpoint variable (fallback)
+  VEILKEY_PASSWORD_FILE        Read admin password from file for VaultCenter commands
+  VEILKEY_MASTER_PASSWORD_FILE Read master password from file for unlock
   VEILKEY_STATE_DIR            State directory (default: $TMPDIR/veilkey-cli)
 "#
     );
@@ -109,6 +123,8 @@ fn main() {
         "cleanup",
         "ref-audit",
         "inventory",
+        "plugin",
+        "unlock",
     ];
 
     let subcmd = raw_args.get(1).map(String::as_str).unwrap_or("");
@@ -207,6 +223,23 @@ fn main() {
         "paste-mode" => commands::cmd_paste_mode(&cmd_args),
         "clear" => commands::cmd_clear(&log_path),
         "status" => commands::cmd_status(&api_url, &log_path, patterns_file.as_deref(), VERSION),
+        "unlock" => {
+            let vc_url = resolve_vaultcenter_url().unwrap_or_else(|| {
+                eprintln!("ERROR: VEILKEY_VAULTCENTER_URL is required for unlock.");
+                process::exit(1);
+            });
+            let password = commands::read_master_password();
+            if password.is_empty() {
+                eprintln!("[veilkey] master password is required");
+                process::exit(1);
+            }
+            let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
+            if let Err(e) = client.unlock(&password) {
+                eprintln!("[veilkey] unlock failed: {}", e);
+                process::exit(1);
+            }
+            println!("VaultCenter unlocked");
+        }
         "resolve" => {
             // Must be interactive TTY — block pipe usage for security
             if unsafe { libc::isatty(0) } == 0 {
@@ -217,7 +250,7 @@ fn main() {
                 eprintln!("Usage: veilkey resolve <VK:ref>");
                 process::exit(1);
             });
-            let password = rpassword::prompt_password("VeilKey password: ").unwrap_or_default();
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&api_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -236,9 +269,7 @@ fn main() {
                 eprintln!("Usage: veilkey function <list|add|remove> [name]");
                 process::exit(1);
             });
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&api_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -306,9 +337,7 @@ fn main() {
                 eprintln!("Usage: veilkey secret <add|list|get|delete> [args]");
                 process::exit(1);
             });
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&api_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -543,9 +572,7 @@ fn main() {
                 eprintln!("Value cannot be empty");
                 process::exit(1);
             }
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&api_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -564,9 +591,7 @@ fn main() {
                 eprintln!("Usage: veilkey ssh <add|list|pubkey|remove> [args]");
                 process::exit(1);
             });
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&api_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -638,9 +663,7 @@ fn main() {
                 process::exit(1);
             });
             let json_flag = cmd_args.iter().any(|a| a == "--json");
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -694,9 +717,7 @@ fn main() {
                 process::exit(1);
             });
             let json_flag = cmd_args.iter().any(|a| a == "--json");
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -803,9 +824,7 @@ fn main() {
                 eprintln!("Usage: veilkey config <search|bulk-update|bulk-set> [args]");
                 process::exit(1);
             });
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -935,9 +954,7 @@ fn main() {
                 .and_then(|i| cmd_args.get(i + 1))
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(20);
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -992,9 +1009,7 @@ fn main() {
                     process::exit(0);
                 }
             }
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -1029,9 +1044,7 @@ fn main() {
                 process::exit(1);
             });
             let json_flag = cmd_args.iter().any(|a| a == "--json");
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -1063,9 +1076,7 @@ fn main() {
                 process::exit(1);
             });
             let json_flag = cmd_args.iter().any(|a| a == "--json");
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -1092,9 +1103,7 @@ fn main() {
                 process::exit(1);
             });
             let json_flag = cmd_args.iter().any(|a| a == "--json");
-            let password = std::env::var("VEILKEY_PASSWORD").unwrap_or_else(|_| {
-                rpassword::prompt_password("VeilKey password: ").unwrap_or_default()
-            });
+            let password = commands::read_admin_password();
             let client = veil_cli_rs::api::VeilKeyClient::new(&vc_url);
             if let Err(e) = client.admin_login(&password) {
                 eprintln!("[veilkey] login failed: {}", e);
@@ -1115,6 +1124,14 @@ fn main() {
             }
         }
         "version" => println!("veilkey {}", VERSION),
+        "plugin" => {
+            let vc_url = resolve_vaultcenter_url().unwrap_or_else(|| {
+                eprintln!("ERROR: VEILKEY_VAULTCENTER_URL is required for plugin commands.");
+                eprintln!("  export VEILKEY_VAULTCENTER_URL=<vaultcenter-url>");
+                process::exit(1);
+            });
+            commands::cmd_plugin(&cmd_args, &vc_url, &log_path, patterns_file.as_deref())
+        }
         "traefik" => {
             commands::cmd_traefik(&cmd_args, &api_url, &log_path, patterns_file.as_deref())
         }

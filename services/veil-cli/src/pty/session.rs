@@ -533,8 +533,8 @@ mod tests {
     #[test]
     fn blocks_exact_secret_on_enter() {
         let mut buf = String::new();
-        let map = secrets(&[("Ghdrhkdgh1@", "VK:LOCAL:6da25530")]);
-        let result = check_stdin_for_secrets(b"Ghdrhkdgh1@\r", &mut buf, &map);
+        let map = secrets(&[("MaskingExamplePass!42", "VK:LOCAL:6da25530")]);
+        let result = check_stdin_for_secrets(b"MaskingExamplePass!42\r", &mut buf, &map);
         assert_eq!(result, StdinGuardResult::Blocked);
     }
 
